@@ -10,4 +10,4 @@ Limitations:
 
 To be be Licensed under: [CC BY-NC-SA 4.0](https://pages.github.com/](https://creativecommons.org/licenses/by-nc-sa/4.0/)).
 
-If you want to contribute to this, let me know in the pinned Issue [thread](https://github.com/tridashafox/sscreater/issues/1), as I will continue to work on it and don't want to duplicate effort.
+If you want to contribute to this, let me know.
