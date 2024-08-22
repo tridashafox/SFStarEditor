@@ -35,7 +35,7 @@
     <ClCompile Include="espread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="espmgrwrite.cpp">
+    <ClCompile Include="espwrite.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sfedmain.cpp">
