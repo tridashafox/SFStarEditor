@@ -136,6 +136,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="epsmgrread.cpp" />
+    <ClCompile Include="espdump.cpp" />
     <ClCompile Include="espmgrwrite.cpp" />
     <ClCompile Include="sfedmain.cpp" />
   </ItemGroup>

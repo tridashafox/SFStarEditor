@@ -41,6 +41,9 @@
     <ClCompile Include="sfedmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="espdump.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="sfed2.ico">
