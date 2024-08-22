@@ -371,12 +371,14 @@ private:
     const PNDTGnamOv BADPNDTGNAMREC = PNDTGnamOv();
 
     // Planet - PNDT record which pulls the above togather in one record which references the others build during loading or refeshed after mods
+    // Rec is different in that the pointers after the m_decompress point into the decompress buffer while the compressed buffer and header
+    // point into the original m_buffer data.
     struct PNDTrec
     {
         bool m_isBad;
         bool m_isMissingMatchingBfce;
         const PNDTHdrOv* m_pHdr;
-        const char* m_pcompdata;
+        const char* m_pcompdata; // compressed data
         uint32_t m_compdatasize;
         std::vector<char> m_decompdata;
         const EDIDrecOv* m_pEdid;
@@ -613,22 +615,34 @@ private:
     void _dumpToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend);
     size_t dumpMissingBfceMapRecs(std::vector<std::string>& oOutputs);
 
-    // For writing data
-    bool _saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr);
-    void _insertname(std::vector<char>& newbuff, STDTrec &oRec, char* pDstName, uint16_t* pNameSize, const char* pNewName);
-    bool _refreshsizeStdt(std::vector<char>& newbuff, const STDTrec& oRec);
-    void _rebuildStdtRecFromBuffer(STDTrec &oRec, const std::vector<char>& newstdbuff);
-    void _clonefixupcompsStdt(std::vector<char>& newbuff, STDTrec& oRec);
+    // For general writing data
     formid_t _createNewFormId();
     formid_t _createNewSystemId();
     uint32_t _incNumObjects();
     GenBlock* _makegenblock(const char *tag, const void* pdata, size_t ilen);
     GenBlock* _makegenblock(const char* tag, const char* pdata);
     void _addtobuff(std::vector<char>& buffer, void* pdata, size_t datasize);
-    bool createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
+    void _insertbuff(std::vector<char>& newbuff, char* pDstName, uint16_t* pSizeToFixup, const char* pNewbuff, size_t iSizeNewBuffer);
+    void _insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNameSize, const char* pNewName);
     bool appendToGrup(char *pgrup, const std::vector<char>& insertData);
     bool createGrup(const char *pTag, const std::vector<char> &newBuff);
+
+    // Star
+    bool _refreshsizeStdt(std::vector<char>& newbuff, const STDTrec& oRec);
+    void _rebuildStdtRecFromBuffer(STDTrec &oRec, const std::vector<char>& newstdbuff);
+    void _clonefixupcompsStdt(std::vector<char>& newbuff, STDTrec& oRec);
+    bool createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
     bool cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const BasicInfoRec &oBasicInfo);
+
+    // Planet
+    size_t _adjustPlanetPositions(const STDTrec& ostdtRec, size_t iPlanetPos);
+    bool _refreshsizePndt(std::vector<char>& newbuff, const PNDTrec& oRec);
+    void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff, bool bDecomp);
+    bool createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
+    bool clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
+    
+    // main modifications
+    bool _saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr);
 
 public:
     // UX to CEsp data sharing
@@ -658,11 +672,3 @@ public:
     bool save(std::string &strErr);
     bool load(const std::wstring& strFileName, std::string& strErr);
 };
-
-// TODO - test saving!
-// 
-// Handle faction value? requires loading of FACT record types (faction) and allowing one to be selected using it's formid from the location record
-//     e.g. create eType for FACT, create maps, create FACTRec, create Ov records, create do_ operations to load, create dump functions.
-// Fix up names in Houndini data for star name - not clear it's needed
-// Save planet data (fixes ups etc)
-

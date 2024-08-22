@@ -322,7 +322,7 @@ void UpdateStatusBar()
     std::string strSrc, strDst, strMem;
 
     if (pEspSrc) strSrc = "[" + pEspSrc->getFnameRoot()+ " " + pEspSrc->dumpStats() + "]";
-    if (pEspDst) strDst = "[" + pEspSrc->getFnameRoot()+ " " + pEspSrc->dumpStats() + "]";
+    if (pEspDst) strDst = "[" + pEspDst->getFnameRoot()+ " " + pEspDst->dumpStats() + "]";
 
     PROCESS_MEMORY_COUNTERS_EX pmc{};
     HANDLE hProcess = GetCurrentProcess();
@@ -1409,3 +1409,11 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 // TODO: support editing of biom data
 // TODO: allow 3d view of star/planet
 // TODO: support adding POI
+
+
+// TODO - test saving!
+// 
+// Handle faction value? requires loading of FACT record types (faction) and allowing one to be selected using it's formid from the location record
+//     e.g. create eType for FACT, create maps, create FACTRec, create Ov records, create do_ operations to load, create dump functions.
+// Fix up names in Houndini data for star name - not clear it's needed
+// Save planet data (fixes ups etc)
