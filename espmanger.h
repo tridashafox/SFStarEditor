@@ -622,7 +622,7 @@ private:
     GenBlock* _makegenblock(const char *tag, const void* pdata, size_t ilen);
     GenBlock* _makegenblock(const char* tag, const char* pdata);
     void _addtobuff(std::vector<char>& buffer, void* pdata, size_t datasize);
-    void _insertbuff(std::vector<char>& newbuff, char* pDstName, uint16_t* pSizeToFixup, const char* pNewbuff, size_t iSizeNewBuffer);
+    void _insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer);
     void _insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNameSize, const char* pNewName);
     bool appendToGrup(char *pgrup, const std::vector<char>& insertData);
     bool createGrup(const char *pTag, const std::vector<char> &newBuff);

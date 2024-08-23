@@ -68,18 +68,16 @@ void CEsp::_addtobuff(std::vector<char>& buffer, void* pdata, size_t datasize)
 }
 
 // insert a string into the block of memory over existing string and update the size
-void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstName, uint16_t* pSizeToFixup, const char* pNewbuff, size_t iSizeNewBuffer)
+void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
 {
-    if (!newbuff.size() || !pDstName || !pSizeToFixup || !pNewbuff || !iSizeNewBuffer) 
+    if (!newbuff.size() || !pDstInsertPosition || !pNewbuff || !iSizeNewBuffer) 
         return;
 
     {   // points inside {} will be invalid after insert/erase operations below
-        size_t oldSize = *pSizeToFixup;
-        size_t newSize = iSizeNewBuffer; // +1 for null terminator
-        size_t iSaveSizeoffset = (char*)pSizeToFixup - newbuff.data();
+        size_t newSize = iSizeNewBuffer; 
 
         // Calculate the position of the destination name within the buffer
-        ptrdiff_t offset = pDstName - newbuff.data();
+        ptrdiff_t offset = pDstInsertPosition - newbuff.data();
 
         // Resize the buffer to accommodate the new name
         if (newSize != oldSize)
@@ -93,9 +91,6 @@ void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstName, uint16_t* pSi
 
         // Copy the new name into the buffer at the correct location
         memcpy(newbuff.data() + offset, pNewbuff, newSize);
-
-        // Update size
-        *((uint16_t*)(newbuff.data() + iSaveSizeoffset)) =  static_cast<uint16_t>(newSize); // do like this in case the orginal size pointer value changed
     }
 
     // Rebuild oRec because above will have moved memory around invalidating pointers
@@ -585,7 +580,7 @@ bool CEsp::_refreshsizePndt(std::vector<char>& newbuff, const PNDTrec& oRec)
     if (newbuff.size() < sizeof(PNDTHdrOv))
         return false; // buffer too small for valid record
 
-    pMutableHdr->m_size = static_cast<uint32_t>((newbuff.size() - sizeof(PNDTHdrOv))); // Size of STDT record excludes the header, why no one knows
+    pMutableHdr->m_size = oRec.m_compdatasize + sizeof(oRec.m_pHdr->m_decompsize); // static_cast<uint32_t>((newbuff.size() - sizeof(PNDTHdrOv))); // Size of STDT record excludes the header, why no one knows
     pMutableHdr->m_decompsize = static_cast<uint32_t>(newbuff.size());
 
     return true;
@@ -594,7 +589,6 @@ bool CEsp::_refreshsizePndt(std::vector<char>& newbuff, const PNDTrec& oRec)
 void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newpndbuff, bool bDecomp)
 {
     // decompress the data in the copy of the source planet data 
-    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newpndbuff[0]);
 
     if (bDecomp)
     {
@@ -626,18 +620,20 @@ size_t CEsp::_adjustPlanetPositions(const STDTrec &ostdtRec, size_t iPlanetPos)
 // put the result in newbuff
 bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const BasicInfoRec &oBasicInfo)
 {
+    // TODO Clean up all the PTR stuff
     if (!m_buffer.size() || !*oBasicInfo.m_pName || opndtRec.m_isBad || !opndtRec.m_pEdid->m_name)
         return false;
 
     // make newbuff the size of the STDT specified in the hdr and copy it over from the source
     // Note unlike GRUP records, the size of the record does not include the size of the STDT header 
 
-    size_t sizeofpndntoclone = opndtRec.m_pHdr->m_size + sizeof(PNDTHdrOv); 
+    size_t sizeofpndntoclone = (opndtRec.m_pHdr->m_size + sizeof(PNDTHdrOv))-sizeof(opndtRec.m_pHdr->m_decompsize); 
     newbuff.resize(sizeofpndntoclone);
     memcpy(&newbuff[0], &opndtRec.m_pHdr[0], sizeofpndntoclone);
 
     // Build an PNDTrec so it will be easier to patch up the names etc
     PNDTrec oRec = {};
+     oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]);
     _rebuildPndtRecFromBuffer(oRec, newbuff, true);
     if (!oRec.m_pHdr)
         return false; // should not happen bad hdr ptr
@@ -687,9 +683,19 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
         return false;
 
-    _insertbuff(newbuff, (char *)oRec.m_pcompdata, (uint16_t *)&oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
-    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata, true); // reload info due to memory changes
-    _refreshsizePndt(oRec.m_decompdata, oRec); // refresh sizes due to memory changes - just sets the in the Hdr to the size of the buffer
+    // TODO: dont think this is working correctly
+    _insertbuff(newbuff, (char *)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
+
+    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr incase address of new buff moved
+
+    _rebuildPndtRecFromBuffer(oRec, newbuff, true); // reload info due to memory changes
+    // Fix up sizes as we can't use _refreshsizePndt it assumes working against a decomp buffer
+    oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
+    pMutableHdr = const_cast<PNDTHdrOv*>(oRec.m_pHdr); 
+    if (!pMutableHdr)
+        return false;
+    pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(oRec.m_pHdr->m_decompsize));
+        
 
     // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM
     //_clonefixupcompsStdt(newbuff, oRec);

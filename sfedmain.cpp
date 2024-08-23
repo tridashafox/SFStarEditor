@@ -1237,6 +1237,7 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                         MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
                         break;
                     }
+                    UpdateStatusBar();
                 }
 
                 EndDialog(hDlg, LOWORD(wParam));
@@ -1387,6 +1388,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                         MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
                         break;
                     }
+                    UpdateStatusBar();
                 }
 
                 EndDialog(hDlg, LOWORD(wParam));
