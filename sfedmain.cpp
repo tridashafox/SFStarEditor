@@ -486,7 +486,7 @@ bool SaveESP(HWND hWnd, BOOL bSaveAs)
             MessageBoxA(hWnd, strMsg.c_str(), "Error", MB_OK | MB_ICONERROR);
             return false;
         }
-        OutputStr("Created back of destination to filename " + strBkName + ".");
+        OutputStr("Created back up of destination to filename " + strBkName + ".");
     }
 
     if (!pEspDst->save(strErr))

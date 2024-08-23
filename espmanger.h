@@ -61,6 +61,11 @@ public:
 
     // standrd objects needed for creating data
     const uint32_t KW_LocTypeStarSystem = 0x149F;
+    const uint32_t KW_LocTypePlanet = 0x14A0;
+    const uint32_t KW_LocTypeMajorOribital = 0x70A54;
+    const uint32_t KW_LoctTypeSurface = 0x16503;
+    const uint32_t KW_LoctTypeOrbit = 0x16504;
+
     const formid_t FID_Universe = 0x1A53A;
 
     // Position of a star system
@@ -153,6 +158,11 @@ private:
     // file buffer. This means if the mapping can not take place because of bad data, the Ov will overlay valid empty
     // object and valid space. It an also be used to check to see if the OV was mapped sucessfully
     // Note the full size of the record is defined by m_size once set and not the size of the struct. 
+
+    // TODO: this has gotten a bit big to continue with this approach, will need to move to
+    // using a base class and defining the differnt types of record formats
+    // Using a seralization method
+    // move away from using the Ov onto the file buffer
 
 #pragma pack(push, 1) // force byte alignment
     struct GenBlock
@@ -436,11 +446,20 @@ private:
     struct LCTNXnamOv
     {
         LCTNXnamOv() { memset(this, 0, sizeof(*this)); }
-        uint8_t m_DNAMtag[4];
+        uint8_t m_XNAMtag[4];
         uint16_t m_size;
         formid_t m_systemId;
     };
     const LCTNXnamOv BADLCTNXNAMREC = LCTNXnamOv();
+
+    struct LCTNYnamOv
+    {
+        LCTNYnamOv() { memset(this, 0, sizeof(*this)); }
+        uint8_t m_YNAMtag[4];
+        uint16_t m_size;
+        uint32_t m_planetpos;
+    };
+    const LCTNYnamOv BADLCTNYNAMREC = LCTNYnamOv();
 
     // Location - LCTN record which pulls the above togather in one record which references the others build during loading or refeshed after mods
     struct LCTNrec
@@ -567,6 +586,8 @@ public:
 
 
 private: 
+    template <typename T> T* makeMutable(const T* ptr);
+
     // for loading
     bool compress_data(const char* input_data, size_t input_size, std::vector<char>& compressed_data);
     bool decompress_data(const char* compressed_data, size_t compressed_size, std::vector<char>& decompressed_data, size_t decompressed_size);
@@ -626,18 +647,20 @@ private:
     void _insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNameSize, const char* pNewName);
     bool appendToGrup(char *pgrup, const std::vector<char>& insertData);
     bool createGrup(const char *pTag, const std::vector<char> &newBuff);
+    formid_t _createLoc(std::vector<char> &newLocbuff, const char* szLocName, const char* szOrbName, formid_t parentid, formid_t systemid, uint32_t *pkeywords, size_t numkeywords, size_t faction, size_t iLvlMin, size_t iLvlMax, size_t iPlanetPosNum);
 
     // Star
     bool _refreshsizeStdt(std::vector<char>& newbuff, const STDTrec& oRec);
     void _rebuildStdtRecFromBuffer(STDTrec &oRec, const std::vector<char>& newstdbuff);
     void _clonefixupcompsStdt(std::vector<char>& newbuff, STDTrec& oRec);
-    bool createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
+    formid_t createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
     bool cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const BasicInfoRec &oBasicInfo);
 
     // Planet
     size_t _adjustPlanetPositions(const STDTrec& ostdtRec, size_t iPlanetPos);
-    bool _refreshsizePndt(std::vector<char>& newbuff, const PNDTrec& oRec);
-    void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff, bool bDecomp);
+    void _decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff);
+    bool _refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize);
+    void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff);
     bool createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
     bool clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
     

@@ -1,6 +1,15 @@
 #include "espmanger.h"
 
 
+template <typename T>
+T* CEsp::makeMutable(const T* ptr)
+{
+    T* mutablePtr = const_cast<T*>(ptr);
+    if (!mutablePtr)
+        throw std::runtime_error("Null pointer cannot be made mutable.");
+    return mutablePtr;
+}
+
 CEsp::formid_t CEsp::_createNewFormId()
 {
     HEDRHdrOv* pMutableHedr = const_cast<HEDRHdrOv*>(getHEDRHdr_ptr()); 
@@ -29,7 +38,8 @@ CEsp::formid_t CEsp::_createNewSystemId()
 
 uint32_t CEsp::_incNumObjects()
 {
-    HEDRHdrOv * pMutableHdr = const_cast<HEDRHdrOv*>(getHEDRHdr_ptr()); 
+
+    HEDRHdrOv * pMutableHdr = makeMutable(getHEDRHdr_ptr()); 
     return pMutableHdr->m_recordcount++;
 }
 
@@ -206,13 +216,115 @@ bool CEsp::createGrup(const char *pTag, const std::vector<char> &newBuff)
     return true;
 }
 
+
+// Creates a location record
+CEsp::formid_t CEsp::_createLoc(std::vector<char> &newLocbuff, const char* szLocName, const char* szOrbName, formid_t parentid, formid_t systemid, 
+    uint32_t *pkeywords, size_t numkeywords, size_t faction, size_t iLvlMin, size_t iLvlMax,  size_t iPlanetPosNum)
+{
+    if (iPlanetPosNum>0xFF || iLvlMax>0xFF || iLvlMin>0xFF || !szLocName || !*szLocName || !szOrbName || !*szOrbName)
+        return false; // bad params
+
+    uint16_t taglen = 4;
+    size_t totalsize = 0;
+    formid_t LocFormId = 0;
+    size_t istartsize = newLocbuff.size();
+
+    // Some macros to prevent typos
+    #define _setcomm(x, y) memcpy(&x, y, taglen); x.m_size = sizeof(x) - (taglen + sizeof(x.m_size))
+    #define _setcommhdr(x, y) memcpy(&x, y, taglen); x.m_size = 0
+    #define _paddrecsize(x) (x->m_size + taglen + sizeof(x->m_size))
+
+    // { } used to prevent typoes from cut/paste by enforcing scope
+    {// LCTN header
+        LCTNHdrOv ohdr;
+        _setcommhdr(ohdr, "LCTN"); // hdr size excludes size of hdr record
+        LocFormId = ohdr.m_formid = _createNewFormId();
+        totalsize = ohdr.m_size;
+        _addtobuff(newLocbuff, &ohdr, sizeof(ohdr));
+    }
+
+    // Note: _makegenblock also updates the m_size for the pasted record pointer, it assumes its after the taglen and is 2bytes
+
+    {// EDID Editor id - name
+        uint32_t size = 0;
+        EDIDrecOv* pEdid = reinterpret_cast<EDIDrecOv*>(_makegenblock("EDID", std::string(szLocName).c_str()));
+        totalsize += size = _paddrecsize(pEdid);
+        _addtobuff(newLocbuff, pEdid, size);
+    }
+
+    {// FULL full name for location
+        uint32_t size = 0;
+        FULLrecOv* pFull = reinterpret_cast<FULLrecOv*>(_makegenblock("FULL", szOrbName));
+        totalsize += size = _paddrecsize(pFull);
+        _addtobuff(newLocbuff, pFull, size);
+    }
+
+    {// KSIZ Keywords how many records   
+        KSIZrecOv oKsiz;
+        _setcomm(oKsiz, "KSIZ");
+        oKsiz.m_count = static_cast<uint32_t>(numkeywords);
+        totalsize += sizeof(oKsiz);
+        _addtobuff(newLocbuff, &oKsiz, sizeof(oKsiz));
+    }
+
+    {// KWDA Keyword(s) data - one keyword LocTypeStarSystem
+        uint32_t size = 0;
+        KWDArecOv* pKwda = reinterpret_cast<KWDArecOv*>(_makegenblock("KWDA", pkeywords, sizeof(uint32_t)*numkeywords));
+        totalsize += size = _paddrecsize(pKwda);
+        _addtobuff(newLocbuff, pKwda, size);
+    }
+        
+    { // DATA data record of location
+        LCTNDataOv oData;
+        _setcomm(oData, "DATA");
+        oData.m_faction = static_cast<formid_t>(faction);
+        oData.m_playerLvl = static_cast<uint8_t>(iLvlMin);
+        oData.m_playerLvlMax = static_cast<uint8_t>(iLvlMax);
+        totalsize += sizeof(oData);
+        _addtobuff(newLocbuff, &oData, sizeof(oData));
+    }
+
+    {// PNAM Parent of the star - Universe
+        LCTNPnamOv oPnam;
+        _setcomm(oPnam, "PNAM");
+        oPnam.m_parentloc = parentid;
+        totalsize += sizeof(oPnam);
+        _addtobuff(newLocbuff, &oPnam, sizeof(oPnam));
+    }
+
+    { // XNAM Star system id
+        LCTNXnamOv oXnam;
+        _setcomm(oXnam, "XNAM");
+        oXnam.m_systemId = systemid;
+        totalsize += sizeof(oXnam);
+        _addtobuff(newLocbuff, &oXnam, sizeof(oXnam));
+    }
+
+    { // YNAM Planet position in system, set to zero for stars - don't know why this has to be in the Loc record
+        LCTNYnamOv oYnam;
+        _setcomm(oYnam, "YNAM");
+        oYnam.m_planetpos = static_cast<uint32_t>(iPlanetPosNum);
+        totalsize += sizeof(oYnam);
+        _addtobuff(newLocbuff, &oYnam, sizeof(oYnam));
+    }
+
+    // put the new size into the buffer hdr
+    // +istartsize because buffer might not be empty when we start it could have a LTCN record already in it and we are adding to it
+    if (newLocbuff.size() > istartsize)
+    {
+        LCTNHdrOv* pHdr = reinterpret_cast<LCTNHdrOv*>(newLocbuff.data() + istartsize);
+        pHdr->m_size = static_cast<uint32_t>(totalsize);
+    }
+    else
+        return 0; // the buffer did not grow during the process of building the LTCN. Bug.
+
+    return LocFormId;
+}
+
 // Sets the record size to the size of the memory buffer, minus the header size
 bool CEsp::_refreshsizeStdt(std::vector<char>& newbuff, const STDTrec& oRec)
 {
-    STDTHdrOv* pMutableHdr = const_cast<STDTHdrOv*>(oRec.m_pHdr);  // recalc ptr due to mem changes
-    if (newbuff.size() < sizeof(STDTHdrOv))
-        return false; // buffer too small for valid record
-
+    STDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr);  // recalc ptr due to mem changes
     pMutableHdr->m_size = static_cast<uint32_t>((newbuff.size() - sizeof(STDTHdrOv))); // Size of STDT record excludes the header, why no one knows
     return true;
 }
@@ -259,7 +371,7 @@ void CEsp::_clonefixupcompsStdt(std::vector<char>& newbuff, STDTrec& oRec)
 // Creates the required star location record from the info and returns it in the newLocBuff
 // the input buffer newStarbuff should old the cloned and modified star so we can get some info from it
 // The basic info will the level information and other info not held with the star but must be put in the location
-bool CEsp::createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff)
+CEsp::formid_t CEsp::createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff)
 {
     uint16_t taglen = 4;
     size_t totalsize = 0;
@@ -267,84 +379,21 @@ bool CEsp::createLocStar(const std::vector<char> &newStarbuff, const BasicInfoRe
     // Create an oRec from the passed star buffer so we can easily get info from it
     STDTrec oRec = {};
     _rebuildStdtRecFromBuffer(oRec, newStarbuff);
-
-    // Some macros to prevent typos
-    #define _setcomm(x, y) memcpy(&x, y, taglen); x.m_size = sizeof(x) - (taglen + sizeof(x.m_size))
-    #define _setcommhdr(x, y) memcpy(&x, y, taglen); x.m_size = 0
-    #define _addrecsize(x) (x.m_size + taglen + sizeof(x.m_size))
-    #define _paddrecsize(x) (x->m_size + taglen + sizeof(x->m_size))
-
-    // { } used to prevent typoes from cut/paste by enforcing scope
-    {// LCTN header
-        LCTNHdrOv ohdr;
-        _setcommhdr(ohdr, "LCTN"); // hdr size excludes size of hdr record
-        ohdr.m_formid = _createNewFormId();
-        totalsize = ohdr.m_size;
-        _addtobuff(newLocbuff, &ohdr, sizeof(ohdr));
-    }
-
     const char* pAname = reinterpret_cast<const char*>(&oRec.m_pAnam->m_aname);
-    {// EDID Editor id - name
-        uint32_t size = 0;
-        EDIDrecOv* pEdid = reinterpret_cast<EDIDrecOv*>(_makegenblock("EDID", std::string("S" + std::string(pAname)).c_str()));
-        totalsize += size = _paddrecsize(pEdid);
-        _addtobuff(newLocbuff, pEdid, size);
-    }
+    std::string strStarName = std::string(pAname);
+    std::string strLocName ="S" + strStarName;
+    uint32_t keywords[] = { KW_LocTypeStarSystem }; 
 
-    {// FULL full name for location
-        uint32_t size = 0;
-        FULLrecOv* pFull = reinterpret_cast<FULLrecOv*>(_makegenblock("FULL", pAname));
-        totalsize += size = _paddrecsize(pFull);
-        _addtobuff(newLocbuff, pFull, size);
-    }
+    formid_t StarLocId =  _createLoc(newLocbuff, 
+        strLocName.c_str(), 
+        strStarName.c_str(),
+        FID_Universe,  
+        oRec.m_pDnam->m_systemId,
+        &keywords[0], sizeof(keywords)/sizeof(uint32_t), 
+        oBasicInfo.m_iFaction, 
+        oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, 0);
 
-    {// KSIZ Keywords how many records   
-        KSIZrecOv oKsiz;
-        _setcomm(oKsiz, "KSIZ");
-        oKsiz.m_count = 1;
-        totalsize += sizeof(oKsiz);
-        _addtobuff(newLocbuff, &oKsiz, sizeof(oKsiz));
-    }
-
-    {// KWDA Keyword(s) data - one keyword LocTypeStarSystem
-        uint32_t size = 0;
-        uint32_t keywords[] = { KW_LocTypeStarSystem }; 
-        KWDArecOv* pKwda = reinterpret_cast<KWDArecOv*>(_makegenblock("KWDA", &keywords, sizeof(keywords)));
-        totalsize += size = _paddrecsize(pKwda);
-        _addtobuff(newLocbuff, pKwda, size);
-    }
-        
-    { // DATA data record of location
-        LCTNDataOv oData;
-        _setcomm(oData, "DATA");
-        oData.m_faction = static_cast<CEsp::formid_t>(oBasicInfo.m_iFaction);
-        oData.m_playerLvl = static_cast<uint8_t>(oBasicInfo.m_iSysPlayerLvl);
-        oData.m_playerLvlMax = static_cast<uint8_t>(oBasicInfo.m_iSysPlayerLvlMax);
-        totalsize += _addrecsize(oData);
-        _addtobuff(newLocbuff, &oData, sizeof(oData));
-    }
-
-    {// PNAM Parent of the star - Universe
-        LCTNPnamOv oPnam;
-        _setcomm(oPnam, "PNAM");
-        oPnam.m_parentloc = FID_Universe;
-        totalsize += _addrecsize(oPnam);
-        _addtobuff(newLocbuff, &oPnam, sizeof(oPnam));
-    }
-
-    { // XNAM Star system id
-        LCTNXnamOv oXnam;
-        _setcomm(oXnam, "XNAM");
-        oXnam.m_systemId = oRec.m_pDnam->m_systemId;
-        totalsize += _addrecsize(oXnam);
-        _addtobuff(newLocbuff, &oXnam, sizeof(oXnam));
-    }
-
-    // put the new size into the buffer hdr
-    LCTNHdrOv *pHdr = reinterpret_cast<LCTNHdrOv*>(newLocbuff.data());
-    pHdr->m_size = static_cast<uint32_t>(totalsize);
-
-    return true;
+    return StarLocId;
 }
 
 
@@ -367,11 +416,7 @@ bool CEsp::cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const 
     if (!oRec.m_pHdr)
         return false; // should not happen bad hdr ptr
 
-    // For time being override const, alot of reworking required to make this clear which could get through away if more OV added
-    STDTHdrOv * pMutableHdr = const_cast<STDTHdrOv*>(oRec.m_pHdr); 
-    if (!pMutableHdr)
-        return false;
-
+    STDTHdrOv * pMutableHdr = makeMutable(oRec.m_pHdr); 
     pMutableHdr->m_formid = _createNewFormId();
     if (!pMutableHdr->m_formid)
         return false; // id should not be zero, possible bad record
@@ -379,16 +424,12 @@ bool CEsp::cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const 
     if (!oRec.m_pBnam || !oRec.m_pDnam)
         return false; // Bad position pointer, or bad System id pointer
 
-    STDTBnamOv* pMutableBnam = const_cast<STDTBnamOv*>(oRec.m_pBnam); 
-    if (!pMutableBnam)
-        return false;
+    STDTBnamOv* pMutableBnam = makeMutable(oRec.m_pBnam); 
     pMutableBnam->m_xPos = oBasicInfo.m_StarMapPostion.m_xPos;
     pMutableBnam->m_yPos = oBasicInfo.m_StarMapPostion.m_yPos;
     pMutableBnam->m_zPos = oBasicInfo.m_StarMapPostion.m_zPos;
 
-    STDTDnamOv * pMutableDnam = const_cast<STDTDnamOv*>(oRec.m_pDnam); 
-    if (!pMutableDnam)
-        return false;
+    STDTDnamOv * pMutableDnam = makeMutable(oRec.m_pDnam); 
     pMutableDnam->m_systemId = _createNewSystemId();
 
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
@@ -422,7 +463,6 @@ bool CEsp::cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const 
 bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::string &strErr)
 {
     std::vector<char> newStarbuff;
-    std::vector<char> newLocbuff;
 
     if (!pSrc)
         MKFAIL("No source provided to create the star from.");
@@ -432,8 +472,16 @@ bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::strin
         MKFAIL("Could not create star as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
-    if (!cloneStdt(newStarbuff, pSrc->m_stdts[oBasicInfo.m_iIdx], oBasicInfo))
-        MKFAIL("Could not clone selected star.");
+    try 
+    {
+        if (!cloneStdt(newStarbuff, pSrc->m_stdts[oBasicInfo.m_iIdx], oBasicInfo)) // can throw if found nullptr
+            MKFAIL("Could not clone selected star.");
+    } 
+    catch (const std::runtime_error& e)
+    {
+        MKFAIL(e.what());
+    }
+
 
     m_bIsSaved = false;
 
@@ -450,6 +498,7 @@ bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::strin
     }
 
     // Create locations from modified star buffer 
+    std::vector<char> newLocbuff;
     if (!createLocStar(newStarbuff, oBasicInfo, newLocbuff))
         MKFAIL("Could not create location record for new star.");
 
@@ -473,130 +522,86 @@ bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::strin
 // the input buffer newPlanetbuff should hold the cloned and modified planet so we can get some info from it
 // The basic info will the level information and other info not held with the star but must be put in the location
 // Need Planet -> surface, orbit
-bool CEsp::createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff)
+bool CEsp::createLocPlanet(const std::vector<char>& newPlanetbuff, const BasicInfoRec& oBasicInfo, std::vector<char>& newLocbuff)
 {
-    return true;
-
     uint16_t taglen = 4;
     size_t totalsize = 0;
 
     // Create an oRec from the passed star buffer so we can easily get info from it
     PNDTrec oRec = {};
-    _rebuildPndtRecFromBuffer(oRec, newPlanetbuff, true);
+    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newPlanetbuff[0]);
+    _decompressPndt(oRec, newPlanetbuff);
+    _rebuildPndtRecFromBuffer(oRec, newPlanetbuff);
 
-    // TODO:
+    if (!oRec.m_pGnam || !oRec.m_pAnam || !oRec.m_pHdr)
+        return false; // Did not build fully the oRec from the decompressed buffer 
 
-    /*
-    // Some macros to prevent typos
-    #define _setcomm(x, y) memcpy(&x, y, taglen); x.m_size = sizeof(x) - (taglen + sizeof(x.m_size))
-    #define _setcommhdr(x, y) memcpy(&x, y, taglen); x.m_size = 0
-    #define _addrecsize(x) (x.m_size + taglen + sizeof(x.m_size))
-    #define _paddrecsize(x) (x->m_size + taglen + sizeof(x->m_size))
+    // get info for location creation
+    formid_t starId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pHdr->m_formid;
+    std::string strStarName = (char*)&(m_stdts[oBasicInfo.m_iPrimaryIdx].m_pAnam->m_aname); 
+    formid_t systemId = oRec.m_pGnam->m_systemId;
 
-    // { } used to prevent typoes from cut/paste by enforcing scope
-    {// LCTN header
-        LCTNHdrOv ohdr;
-        _setcommhdr(ohdr, "LCTN"); // hdr size excludes size of hdr record
-        ohdr.m_formid = _createNewFormId();
-        totalsize = ohdr.m_size;
-        _addtobuff(newLocbuff, &ohdr, sizeof(ohdr));
-    }
+    formid_t StarLocId = 0;
+    // Find the locaiton record for the star so we reference it from the planet location
+    // TODO: use  map perhaps, but there won't be many loc records in the esp (expecting <100)
+    for (auto& oLctn : m_lctns)
+        if (oLctn.m_pXnam->m_systemId == oRec.m_pGnam->m_systemId)
+            StarLocId = oLctn.m_pHdr->m_formid;
+
+    if (!StarLocId)
+        return false; // could not find location record for the star the planet needs to be under
 
     const char* pAname = reinterpret_cast<const char*>(&oRec.m_pAnam->m_aname);
-    {// EDID Editor id - name
-        uint32_t size = 0;
-        EDIDrecOv* pEdid = reinterpret_cast<EDIDrecOv*>(_makegenblock("EDID", std::string("S" + std::string(pAname)).c_str()));
-        totalsize += size = _paddrecsize(pEdid);
-        _addtobuff(newLocbuff, pEdid, size);
-    }
+    std::string strPlanetName = std::string(pAname);
+    std::string strLocName =  "S" + strStarName + "_P" + strPlanetName;
 
-    {// FULL full name for location
-        uint32_t size = 0;
-        FULLrecOv* pFull = reinterpret_cast<FULLrecOv*>(_makegenblock("FULL", pAname));
-        totalsize += size = _paddrecsize(pFull);
-        _addtobuff(newLocbuff, pFull, size);
-    }
+    // TODO set the corect keywords
+    uint32_t keywordsPlanet[] = { KW_LocTypePlanet,  KW_LocTypeMajorOribital }; 
+    uint32_t keywordsOrbit[] = { KW_LoctTypeOrbit }; 
+    uint32_t keywordsSurface[] = { KW_LoctTypeSurface }; 
 
-    {// KSIZ Keywords how many records   
-        KSIZrecOv oKsiz;
-        _setcomm(oKsiz, "KSIZ");
-        oKsiz.m_count = 1;
-        totalsize += sizeof(oKsiz);
-        _addtobuff(newLocbuff, &oKsiz, sizeof(oKsiz));
-    }
+    // Planet location record
+    formid_t planetLocId = 0;
+    if (!(planetLocId = _createLoc(newLocbuff, strLocName.c_str(), strPlanetName.c_str(), StarLocId, systemId,
+        &keywordsPlanet[0], sizeof(keywordsPlanet) / sizeof(uint32_t),
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos)))
+        return false;
 
-    {// KWDA Keyword(s) data - one keyword LocTypeStarSystem
-        uint32_t size = 0;
-        uint32_t keywords[] = { KW_LocTypeStarSystem }; 
-        KWDArecOv* pKwda = reinterpret_cast<KWDArecOv*>(_makegenblock("KWDA", &keywords, sizeof(keywords)));
-        totalsize += size = _paddrecsize(pKwda);
-        _addtobuff(newLocbuff, pKwda, size);
-    }
-        
-    { // DATA data record of location
-        LCTNDataOv oData;
-        _setcomm(oData, "DATA");
-        oData.m_faction = static_cast<CEsp::formid_t>(oBasicInfo.m_iFaction);
-        oData.m_playerLvl = static_cast<uint8_t>(oBasicInfo.m_iSysPlayerLvl);
-        oData.m_playerLvlMax = static_cast<uint8_t>(oBasicInfo.m_iSysPlayerLvlMax);
-        totalsize += _addrecsize(oData);
-        _addtobuff(newLocbuff, &oData, sizeof(oData));
-    }
+    // Create orbit reference
+    if (!_createLoc(newLocbuff, std::string(strLocName + "_Orbit").c_str(), strPlanetName.c_str(), planetLocId, systemId,
+        &keywordsOrbit[0], sizeof(keywordsOrbit) / sizeof(uint32_t),
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos))
+        return false;
 
-    {// PNAM Parent of the star - Universe
-        LCTNPnamOv oPnam;
-        _setcomm(oPnam, "PNAM");
-        oPnam.m_parentloc = FID_Universe;
-        totalsize += _addrecsize(oPnam);
-        _addtobuff(newLocbuff, &oPnam, sizeof(oPnam));
-    }
-
-    { // XNAM Star system id
-        LCTNXnamOv oXnam;
-        _setcomm(oXnam, "XNAM");
-        oXnam.m_systemId = oRec.m_pDnam->m_systemId;
-        totalsize += _addrecsize(oXnam);
-        _addtobuff(newLocbuff, &oXnam, sizeof(oXnam));
-    }
-    */
-
-    // put the new size into the buffer hdr
-    LCTNHdrOv *pHdr = reinterpret_cast<LCTNHdrOv*>(newLocbuff.data());
-    pHdr->m_size = static_cast<uint32_t>(totalsize); 
+    // Create surface reference
+    if (!_createLoc(newLocbuff, std::string(strLocName + "_Surface").c_str(), strPlanetName.c_str(), planetLocId, systemId,
+        &keywordsSurface[0], sizeof(keywordsSurface) / sizeof(uint32_t),
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos))
+        return false;
 
     return true;
 }
 
 // Sets the record size to the size of the memory buffer, minus the header size
-bool CEsp::_refreshsizePndt(std::vector<char>& newbuff, const PNDTrec& oRec)
+bool CEsp::_refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize)
 {
-    if (!oRec.m_pHdr)
-        return false;
-
-    PNDTHdrOv* pMutableHdr = const_cast<PNDTHdrOv*>(oRec.m_pHdr);  // recalc ptr due to mem changes
-    if (!pMutableHdr)
-        return false;
-
-    if (newbuff.size() < sizeof(PNDTHdrOv))
-        return false; // buffer too small for valid record
-
-    pMutableHdr->m_size = oRec.m_compdatasize + sizeof(oRec.m_pHdr->m_decompsize); // static_cast<uint32_t>((newbuff.size() - sizeof(PNDTHdrOv))); // Size of STDT record excludes the header, why no one knows
-    pMutableHdr->m_decompsize = static_cast<uint32_t>(newbuff.size());
+    PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr);  // recalc ptr due to mem changes
+    pMutableHdr->m_size = oRec.m_compdatasize + sizeof(oRec.m_pHdr->m_decompsize); 
+    pMutableHdr->m_decompsize = static_cast<uint32_t>(decomsize);
 
     return true;
 }
 
-void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newpndbuff, bool bDecomp)
+// Given the buffer to a complete pndt record decompress it into the oRec decomp buffer and update the sizes
+void CEsp::_decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff)
 {
-    // decompress the data in the copy of the source planet data 
+    oRec.m_pcompdata = &newpndbuff[sizeof(PNDTHdrOv)];
+    oRec.m_compdatasize = oRec.m_pHdr->m_size - sizeof(uint32_t);  // size in hdr - compressed data + the 4 bytes that hold the decomp size
+    decompress_data(oRec.m_pcompdata, oRec.m_compdatasize, oRec.m_decompdata, oRec.m_pHdr->m_decompsize);
+}
 
-    if (bDecomp)
-    {
-        oRec.m_pcompdata = &newpndbuff[sizeof(PNDTHdrOv)];
-        oRec.m_compdatasize = oRec.m_pHdr->m_size - sizeof(oRec.m_pHdr->m_decompsize);  
-        decompress_data(oRec.m_pcompdata, oRec.m_compdatasize, oRec.m_decompdata, oRec.m_pHdr->m_decompsize);
-    }
-
+void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newpndbuff)
+{
     // build out other PNDT data records
     const char* searchPtr = &oRec.m_decompdata[0];
     const char* endPtr = &oRec.m_decompdata[oRec.m_decompdata.size() - 1];
@@ -634,15 +639,13 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     // Build an PNDTrec so it will be easier to patch up the names etc
     PNDTrec oRec = {};
      oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]);
-    _rebuildPndtRecFromBuffer(oRec, newbuff, true);
+     _decompressPndt(oRec, newbuff);
+    _rebuildPndtRecFromBuffer(oRec, newbuff);
     if (!oRec.m_pHdr)
         return false; // should not happen bad hdr ptr
 
     // For time being override const, alot of reworking required to make this clear which could get through away if more OV added
-    PNDTHdrOv * pMutableHdr = const_cast<PNDTHdrOv*>(oRec.m_pHdr); 
-    if (!pMutableHdr)
-        return false;
-
+    PNDTHdrOv * pMutableHdr = makeMutable(oRec.m_pHdr); 
     pMutableHdr->m_formid = _createNewFormId();
     if (!pMutableHdr->m_formid)
         return false; // id should not be zero, possible bad record
@@ -653,12 +656,8 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
         return false; // bad primary index
 
     // Put the planet in the star system of the star indx in PirmaryIdx
-    formid_t iSystem = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId;
-    PNDTGnamOv * pMutableGnam = const_cast<PNDTGnamOv*>(oRec.m_pGnam); 
-    if (!pMutableGnam)
-        return false;
-
-    pMutableGnam->m_systemId = iSystem;
+    PNDTGnamOv * pMutableGnam = makeMutable(oRec.m_pGnam); 
+    pMutableGnam->m_systemId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId;
     pMutableGnam->m_primePndtId = static_cast<uint32_t>(oBasicInfo.m_iPlanetPos); 
     
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
@@ -666,37 +665,32 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
 
     // Do work below in the decompressed buffer
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pEdid->m_name, (uint16_t *)&oRec.m_pEdid->m_size, oBasicInfo.m_pName);
-    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata, false); // reload info due to memory changes
-    _refreshsizePndt(oRec.m_decompdata, oRec); // refresh sizes due to memory changes - just sets the in the Hdr to the size of the buffer
+    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+    _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
    
-
     if (!oRec.m_pAnam || !oRec.m_pAnam->m_size || !oRec.m_pAnam->m_aname)
         return false; // Bad full name
 
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pAnam->m_aname, (uint16_t *)&oRec.m_pAnam->m_size, oBasicInfo.m_pAName);
-    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata, false); // reload info due to memory changes
-    _refreshsizePndt(oRec.m_decompdata, oRec); // refresh sizes due to memory changes - just sets the in the Hdr to the size of the buffer
+    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+    _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
 
-    // Recompress the compressed buffer out side the buffer, then insert it overtop the current compressed buffer
-
+    // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
     std::vector<char> newcompressbuffer;
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
         return false;
-
-    // TODO: dont think this is working correctly
     _insertbuff(newbuff, (char *)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
+    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr in case address of new buff moved
+    _rebuildPndtRecFromBuffer(oRec, newbuff); // reload info due to memory changes
 
-    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr incase address of new buff moved
-
-    _rebuildPndtRecFromBuffer(oRec, newbuff, true); // reload info due to memory changes
     // Fix up sizes as we can't use _refreshsizePndt it assumes working against a decomp buffer
     oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
-    pMutableHdr = const_cast<PNDTHdrOv*>(oRec.m_pHdr); 
-    if (!pMutableHdr)
-        return false;
-    pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(oRec.m_pHdr->m_decompsize));
-        
+    pMutableHdr = makeMutable(oRec.m_pHdr); 
+    pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
 
+    // Anyother strings to replace?
+    // Remove Landmarks ... 
+        
     // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM
     //_clonefixupcompsStdt(newbuff, oRec);
 
@@ -706,10 +700,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
 bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::string& strErr)
 {
     strErr.clear();
-    // todo: create clone with changes and locations
-
     std::vector<char> newPlanetbuff;
-    std::vector<char> newLocbuff;
 
     if (!pSrc)
         MKFAIL("No source provided to create the planet from.");
@@ -719,8 +710,15 @@ bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::str
         MKFAIL("Could not create planet as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
-    if (!clonePndt(newPlanetbuff, pSrc->m_pndts[oBasicInfo.m_iIdx], oBasicInfo))
-        MKFAIL("Could not clone selected planet.");
+    try 
+    {
+        if (!clonePndt(newPlanetbuff, pSrc->m_pndts[oBasicInfo.m_iIdx], oBasicInfo)) // can throw if found nullptr
+            MKFAIL("Could not clone selected planet.");
+    } 
+    catch (const std::runtime_error& e)
+    {
+        MKFAIL(e.what());
+    }
 
     m_bIsSaved = false;
 
@@ -737,14 +735,13 @@ bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::str
     }
 
     // Create locations from modified star buffer 
+    std::vector<char> newLocbuff;
     if (!createLocPlanet(newPlanetbuff, oBasicInfo, newLocbuff))
         MKFAIL("Could not create location record for new star.");
 
-    // TODO: run through all planets with the same Primary and adjust their positions in m_buffer
     // Update planet postions in star system to accomidate new planet
-    // TODO will need recompressing data etc
     _adjustPlanetPositions(m_stdts[oBasicInfo.m_iPrimaryIdx], oBasicInfo.m_iPlanetPos); 
-    /*
+    
     // Save the locaiton to the location group if it exists otherwise create a new group and add it to that
     if (!m_grupLctnPtrs.size())
     {
@@ -756,7 +753,7 @@ bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::str
     {
         if (!appendToGrup((char*)m_grupLctnPtrs[0], newLocbuff))
             MKFAIL("Could not add new location to existing destination group location record.");
-    }*/
+    }
    
     return true;
 }
