@@ -77,6 +77,17 @@ void CEsp::_addtobuff(std::vector<char>& buffer, void* pdata, size_t datasize)
     std::memcpy(buffer.data() + currentSize, pdata, datasize);
 }
 
+// remove spacce in buffer between removestart and remove end, include start, excluding end
+void CEsp::_deleterec(std::vector<char>& newbuff, const char* removestart, const char* removeend)
+{
+    auto start = newbuff.begin() + (removestart - &newbuff[0]);
+    auto end = newbuff.begin() + (removeend - &newbuff[0]);
+
+    // Ensure that start is before end
+    if (start < end && start >= newbuff.begin() && end <= newbuff.end())
+        newbuff.erase(start, end);
+}
+
 // insert a string into the block of memory over existing string and update the size
 void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
 {
@@ -675,24 +686,37 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
 
+    // Remove Landmarks (POI) ... 
+    if (oRec.m_oPpbds.size())
+    {
+        for (auto& pPpbd : oRec.m_oPpbds)
+        {
+            const char* removestart = reinterpret_cast<const char*>(pPpbd);
+            const char* removeend = &removestart[pPpbd->m_size + sizeof(pPpbd->m_PPBDtag) + sizeof(pPpbd->m_size)];
+            _deleterec(oRec.m_decompdata, removestart, removeend);
+        }
+        _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+        _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
+    }
+
+    // Another strings to replace?
+        
+    // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM
+    //_clonefixupcompsStdt(newbuff, oRec);
+
+    
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
     std::vector<char> newcompressbuffer;
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
         return false;
+
     _insertbuff(newbuff, (char *)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
     oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr in case address of new buff moved
     _rebuildPndtRecFromBuffer(oRec, newbuff); // reload info due to memory changes
 
-    // Fix up sizes as we can't use _refreshsizePndt it assumes working against a decomp buffer
     oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
     pMutableHdr = makeMutable(oRec.m_pHdr); 
     pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
-
-    // Anyother strings to replace?
-    // Remove Landmarks ... 
-        
-    // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM
-    //_clonefixupcompsStdt(newbuff, oRec);
 
     return true;
 }

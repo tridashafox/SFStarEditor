@@ -51,6 +51,7 @@ public:
     #define ESP_FORMIDPREF (0x01000000) // looks like this should be 0x01 for ESPs
     #define MAXKEYWORDS (255) // There should not be more than 255 keywords in list (protection against bad data)
     #define MAXCOMPINREC (3000) // Should not be more than this many components some objects have 1000s of this
+    #define MAXPPBD (255) // Limit the max number of PPBD records in case there is a data issue they are a set of POIs in planets
     #define LIMITCOMPSTO (20) // Currently limiting how many we load to 10, since we only intereted in a few of these.
     #define MAXCOMPFORDUMPING 3 // used for to limit dump output
     #define BLEFT ((size_t)(endPtr - searchPtr))
@@ -159,10 +160,10 @@ private:
     // object and valid space. It an also be used to check to see if the OV was mapped sucessfully
     // Note the full size of the record is defined by m_size once set and not the size of the struct. 
 
-    // TODO: this has gotten a bit big to continue with this approach, will need to move to
-    // using a base class and defining the differnt types of record formats
-    // Using a seralization method
-    // move away from using the Ov onto the file buffer
+    // TODO: this approach has been outgrown, too many records now to use 'patching' style approach
+    // Will need to move to using a base class and defining the differnt types of record formats
+    // and move to seralization method for data now that the record formats are understood
+    // So move away from using the Ov onto the file buffer
 
 #pragma pack(push, 1) // force byte alignment
     struct GenBlock
@@ -242,6 +243,15 @@ private:
         const BFCBrecOv* m_pBfcbName;
         const BFCBDatarecOv* m_pBfcbData;
     }; 
+
+    struct PPBDOv  // holds POI data for planet as na array of these
+    {
+        PPBDOv() { memset(this, 0, sizeof(*this)); }
+        uint8_t m_PPBDtag[4];
+        uint16_t m_size;
+        uint8_t m_data; // first byte in a set m_size long
+    };
+    const PPBDOv BADPPBDDREC = PPBDOv();
 
     struct FULLrecOv { // Full user visible name
         FULLrecOv() { memset(this, 0, sizeof(*this)); }
@@ -369,6 +379,14 @@ private:
     };
     const PNDTAnamOv BADPNDTANAMREC = PNDTAnamOv();
 
+    struct PNDTCnamOv 
+    {
+        PNDTCnamOv() { memset(this, 0, sizeof(*this)); }
+        uint8_t m_CNAMtag[4];
+        uint16_t m_size; // seems to be just a marker record for a set of PPBD records that follow
+    };
+    const PNDTCnamOv BADPNDCANAMREC = PNDTCnamOv();
+
     struct PNDTGnamOv
     {
         PNDTGnamOv() { memset(this, 0, sizeof(*this)); }
@@ -395,6 +413,8 @@ private:
         std::vector<COMPRec>m_oComp; // set of components
         // TODO: other records
         const PNDTAnamOv* m_pAnam;
+        const PNDTCnamOv* m_pCnam;
+        std::vector<const PPBDOv*> m_oPpbds; // Set of PPBD records 
         const PNDTGnamOv* m_pGnam;
     };
 
@@ -599,6 +619,7 @@ private:
     size_t findPrimaryIdx(size_t iIdx, fPos& oSystemPosition);
     size_t findPndtsFromStdt(size_t iIdx, std::vector<size_t>& oFndPndts);
     bool isBadPosition(const fPos& oPos);
+    bool _readBFCBtoBFBE(const char*& searchPtr, const char*& endPtr, std::vector<COMPRec>& oComp);
     void _doBfcbquickskip(const char*& searchPtr, const char*& endPtr);
     void _dobuildsubrecs_mt(const std::vector<const GRUPHdrOv*>& vgrps, const char* searchPatt, ESPRECTYPE eType);
     void do_process_subrecs_mt();
@@ -642,6 +663,7 @@ private:
     uint32_t _incNumObjects();
     GenBlock* _makegenblock(const char *tag, const void* pdata, size_t ilen);
     GenBlock* _makegenblock(const char* tag, const char* pdata);
+    void _deleterec(std::vector<char>& newbuff, const char* removestart, const char* removeend);
     void _addtobuff(std::vector<char>& buffer, void* pdata, size_t datasize);
     void _insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer);
     void _insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNameSize, const char* pNewName);

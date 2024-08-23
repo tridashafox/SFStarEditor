@@ -40,34 +40,7 @@ void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const cha
             {
                 if (BLEFT >= sizeof(BFCBrecOv)+sizeof(BFCBDatarecOv))
                 {
-                    // Currently treating BFCB-BFBE records as optional since a stdt/pndt can be created this way in ck
-                    const BFCBrecOv *pBfcb = reinterpret_cast<const BFCBrecOv*>(searchPtr);
-                    searchPtr += BSKIP(pBfcb); // Skip forward
-                    const BFCBDatarecOv *pBfcbData = reinterpret_cast<const BFCBDatarecOv*>(searchPtr);
-                    searchPtr += BSKIP(pBfcbData); // Skip forward
-
-                    if (oRec.m_oComp.size()<LIMITCOMPSTO) // FORCE A LIMIT, we don't need all the component records there can be >1.5k of these
-                        if (oRec.m_oComp.size()<=MAXCOMPINREC) // Data is bad if above this
-                            oRec.m_oComp.push_back(COMPRec(pBfcb, pBfcbData)); 
-
-                    // Skip stuff we are not intersted in the component, faster than looking for BDCE end tag
-                    _doBfcbquickskip(searchPtr, endPtr);
-
-                    if (BLEFT >= sizeof(BFCErecOv))
-                    {
-                        if (memcmp(searchPtr, "BFCB", taglen) == 0)
-                        {
-                            // record that is missing the BFCE end of block record mark it as bad
-                            oRec.m_isMissingMatchingBfce = true;
-                            continue;
-                        }
-
-                        if (BLEFT >= sizeof(BFCErecOv))
-                        {
-                            // Ignore the end marker for now, it contains no useful data
-                            searchPtr += sizeof(BFCErecOv); // Skip forward
-                        }
-                    }
+                    oRec.m_isMissingMatchingBfce = _readBFCBtoBFBE(searchPtr, endPtr, oRec.m_oComp);
                     continue; // If we move the searcPtr ourselves we have to continue to avoid extra ++
                 }
             }

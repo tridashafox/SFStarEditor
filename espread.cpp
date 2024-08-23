@@ -131,6 +131,39 @@ bool CEsp::isBadPosition(const CEsp::fPos& oPos)
     return false;
 }
 
+// Handle Block records used to store components
+// returns true if found a missing End Block marker
+bool CEsp::_readBFCBtoBFBE(const char*& searchPtr, const char*& endPtr,  std::vector<CEsp::COMPRec> &oComp)
+{
+    size_t taglen = 4;
+
+    // Currently treating BFCB-BFBE records as optional since a stdt/pndt can be created this way in ck
+    const BFCBrecOv *pBfcb = reinterpret_cast<const BFCBrecOv*>(searchPtr);
+    searchPtr += BSKIP(pBfcb); // Skip forward
+    const BFCBDatarecOv *pBfcbData = reinterpret_cast<const BFCBDatarecOv*>(searchPtr);
+    searchPtr += BSKIP(pBfcbData); // Skip forward
+
+    if (oComp.size()<LIMITCOMPSTO) // FORCE A LIMIT, we don't need all the component records there can be >1.5k of these
+        if (oComp.size()<=MAXCOMPINREC) // Data is bad if above this
+            oComp.push_back(COMPRec(pBfcb, pBfcbData)); 
+
+    // Skip stuff we are not intersted in the component, faster than looking for BDCE end tag
+    _doBfcbquickskip(searchPtr, endPtr);
+
+    if (BLEFT >= sizeof(BFCErecOv))
+    {
+        if (memcmp(searchPtr, "BFCB", taglen) == 0)
+            return true;
+
+        if (BLEFT >= sizeof(BFCErecOv))
+        {
+            // Ignore the end marker for now, it contains no useful data
+            searchPtr += sizeof(BFCErecOv); // Skip forward
+        }
+    }
+    return false;
+}
+
 // for performance - skip past tags in component block we are not intersted in at the moment or don't have overlays for
 void CEsp::_doBfcbquickskip(const char * &searchPtr, const char *&endPtr)
 {

@@ -123,6 +123,8 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
             {
                 if (BLEFT >= sizeof(BFCBrecOv) + sizeof(BFCBDatarecOv))
                 {
+                    oRec.m_isMissingMatchingBfce = _readBFCBtoBFBE(searchPtr, endPtr, oRec.m_oComp);
+                    /*
                     // Currently treating BFCB-BFBE records as optional since a stdt/pndt can be created this way in ck
                     const BFCBrecOv *pBfcb = reinterpret_cast<const BFCBrecOv*>(searchPtr);
                     searchPtr += BSKIP(pBfcb); // Skip forward
@@ -148,7 +150,7 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
                     {
                         // Ignore the end marker for now, it contains no useful data
                         searchPtr += sizeof(BFCErecOv); // Skip forward
-                    }
+                    }*/
                     continue; 
                 }
             }
@@ -174,6 +176,26 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
                     {
                         oRec.m_pAnam = reinterpret_cast<const PNDTAnamOv*>(searchPtr);
                         searchPtr += BSKIP(oRec.m_pAnam); // Skip forward
+                    }
+                    continue;
+                }
+                else
+                if (memcmp(searchPtr, "CNAM", taglen) == 0)
+                {
+                    if (BLEFT >= sizeof(PNDTCnamOv))
+                    { // CNAM records in PNDT seem to have zero size, so just a marker
+                        oRec.m_pCnam = reinterpret_cast<const PNDTCnamOv*>(searchPtr);
+                        searchPtr += BSKIP(oRec.m_pCnam); // Skip forward
+                    }
+
+                    // These should follow CNAM if they exist
+                    oRec.m_oPpbds.clear();
+                    while (BLEFT >= sizeof(PPBDOv) && memcmp(searchPtr, "PPBD", taglen) == 0 &&  oRec.m_oPpbds.size() < MAXPPBD) // don't loop forever if there is an problem
+                    {
+                        const PPBDOv *pPpbd = nullptr;
+                        pPpbd = reinterpret_cast<const PPBDOv*>(searchPtr);
+                        oRec.m_oPpbds.push_back(pPpbd);
+                        searchPtr += BSKIP(pPpbd); // Skip forward
                     }
                     continue;
                 }
