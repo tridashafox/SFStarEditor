@@ -38,25 +38,25 @@ extern const char* SZBADRECORD;
 class CEsp
 {
 public:
-    CEsp() { m_bIsSaved = true;  };
+    CEsp() { m_bIsSaved = true; };
     ~CEsp() {};
 
     enum ESPRECTYPE { eESP_IDK, eESP_PNDT, eESP_STDT, eESP_LCTN };
 
-    #define NO_ORBIT -1 
-    #define NO_RECIDX -1
-    #define GENBUFFSIZE (1024)
-    #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
-    #define ESP_FORMIDMASK (0x01FFFFFF) // mask to just affect the top byte of a form id
-    #define ESP_FORMIDPREF (0x01000000) // looks like this should be 0x01 for ESPs
-    #define MAXKEYWORDS (255) // There should not be more than 255 keywords in list (protection against bad data)
-    #define MAXCOMPINREC (3000) // Should not be more than this many components some objects have 1000s of this
-    #define MAXPPBD (255) // Limit the max number of PPBD records in case there is a data issue they are a set of POIs in planets
-    #define LIMITCOMPSTO (20) // Currently limiting how many we load to 10, since we only intereted in a few of these.
-    #define MAXCOMPFORDUMPING 3 // used for to limit dump output
-    #define BLEFT ((size_t)(endPtr - searchPtr))
-    #define BSKIP(x) (sizeof(x->m_size)+x->m_size+4)
-    #define MKFAIL(x) { strErr = x; return false; }
+#define NO_ORBIT -1 
+#define NO_RECIDX -1
+#define GENBUFFSIZE (1024)
+#define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
+#define ESP_FORMIDMASK (0x01FFFFFF) // mask to just affect the top byte of a form id
+#define ESP_FORMIDPREF (0x01000000) // looks like this should be 0x01 for ESPs
+#define MAXKEYWORDS (255) // There should not be more than 255 keywords in list (protection against bad data)
+#define MAXCOMPINREC (3000) // Should not be more than this many components some objects have 1000s of this
+#define MAXPPBD (255) // Limit the max number of PPBD records in case there is a data issue they are a set of POIs in planets
+#define LIMITCOMPSTO (20) // Currently limiting how many we load to 10, since we only intereted in a few of these.
+#define MAXCOMPFORDUMPING 3 // used for to limit dump output
+#define BLEFT ((size_t)(endPtr - searchPtr))
+#define BSKIP(x) (sizeof(x->m_size)+x->m_size+4)
+#define MKFAIL(x) { strErr = x; return false; }
 
     using formid_t = uint32_t;
 
@@ -68,6 +68,7 @@ public:
     const uint32_t KW_LoctTypeOrbit = 0x16504;
 
     const formid_t FID_Universe = 0x1A53A;
+    const formid_t FID_Debug_ClassMPlanet = 0x5e009;
 
     // Position of a star system
     struct fPos
@@ -86,10 +87,10 @@ public:
     {
         BasicInfoRec() { clear(); }
         BasicInfoRec(const ESPRECTYPE eType, const char* pName, const char* pAName,
-            const bool bMoon, const fPos& oPos, const size_t iIdx, const size_t iPrimaryIdx = NO_ORBIT, const size_t iPlanetPos = 0, 
+            const bool bMoon, const fPos& oPos, const size_t iIdx, const size_t iPrimaryIdx = NO_ORBIT, const size_t iPlanetPos = 0,
             const size_t iSysPlayerLvl = 70, const size_t iSysPlayerLvlMax = 255, const size_t iFaction = 0) :
             m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_StarMapPostion(oPos),
-            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPos(iPlanetPos), m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax), 
+            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPos(iPlanetPos), m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
             m_iFaction(iFaction) {}
         void clear()
         {
@@ -119,7 +120,7 @@ public:
     };
 
     // For ploting data on star map
-    struct StarPlotData 
+    struct StarPlotData
     {
         StarPlotData() : m_oPos(0, 0, 0), m_strStarName("") {}
         StarPlotData(fPos oPos, std::string strStarName) : m_oPos(oPos), m_strStarName(strStarName) {}
@@ -128,6 +129,8 @@ public:
     };
 
 private:
+    int no_op() {int a = 0; int b = 1; return a + b; }
+
     void rlc(std::string& str) // for basic formating of lists 
     { 
         if (!str.empty() && str.back() == ' ') str.pop_back();
@@ -626,6 +629,7 @@ private:
     size_t getmtclunks(size_t num_pointers, size_t& num_threads);
 
     // planets
+    void _buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op(size_t iPndtIdx);
     void process_pndt_ranged_op_mt(size_t start, size_t end);

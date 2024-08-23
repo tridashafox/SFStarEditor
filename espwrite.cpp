@@ -632,6 +632,26 @@ size_t CEsp::_adjustPlanetPositions(const STDTrec &ostdtRec, size_t iPlanetPos)
     return iPlanetPos;
 }
 
+#ifdef Never
+    // example code for how to remove bioms
+    // Remove Bioms
+    int i = 0; std::string strErr;
+    while (oRec.m_oPpbds.size())
+    {
+        const PPBDOv* pPpbd = oRec.m_oPpbds.back();
+        if (!pPpbd)
+            break;
+        oRec.m_oPpbds.pop_back();
+
+        const char* removestart = reinterpret_cast<const char*>(pPpbd);
+        const char* removeend = &removestart[pPpbd->m_size + sizeof(pPpbd->m_PPBDtag) + sizeof(pPpbd->m_size)];
+         _deleterec(oRec.m_decompdata, removestart, removeend);
+        _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+        _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
+        // debug _saveToFile(oRec.m_decompdata, L"F:\\downloads\\cut" + std::to_wstring(i++) + L".bin", strErr);
+    }
+#endif
+
 // Make a clone of the passed record in ostdRec, chnaging the clone with the info oBasicInfo
 // put the result in newbuff
 bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const BasicInfoRec &oBasicInfo)
@@ -686,19 +706,21 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
 
-    // Remove Landmarks (POI) ... 
-    if (oRec.m_oPpbds.size())
+    // Remove POIs, delete contents of CNAM and set its size to zero but keep tag and size of 0
+    if (oRec.m_pCnam)
     {
-        for (auto& pPpbd : oRec.m_oPpbds)
-        {
-            const char* removestart = reinterpret_cast<const char*>(pPpbd);
-            const char* removeend = &removestart[pPpbd->m_size + sizeof(pPpbd->m_PPBDtag) + sizeof(pPpbd->m_size)];
-            _deleterec(oRec.m_decompdata, removestart, removeend);
-        }
+        const char* removestart = (reinterpret_cast<const char*>(oRec.m_pCnam)) + sizeof(oRec.m_pCnam->m_CNAMtag) + sizeof(oRec.m_pCnam->m_size);
+        const char* removeend = &removestart[oRec.m_pCnam->m_size];
+        PNDTCnamOv * pMutableHdr = makeMutable(oRec.m_pCnam); 
+        pMutableHdr->m_size = 0;
+        _deleterec(oRec.m_decompdata, removestart, removeend);
         _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
         _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
     }
+    // debug
+    // std::string strErr;  _saveToFile(oRec.m_decompdata, L"F:\\downloads\\cut" + std::to_wstring(100) + L".bin", strErr);
 
+    
     // Another strings to replace?
         
     // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM

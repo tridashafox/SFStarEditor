@@ -153,12 +153,18 @@ bool CEsp::_readBFCBtoBFBE(const char*& searchPtr, const char*& endPtr,  std::ve
     if (BLEFT >= sizeof(BFCErecOv))
     {
         if (memcmp(searchPtr, "BFCB", taglen) == 0)
-            return true;
+            return true; // found missing end block
 
         if (BLEFT >= sizeof(BFCErecOv))
         {
-            // Ignore the end marker for now, it contains no useful data
-            searchPtr += sizeof(BFCErecOv); // Skip forward
+            if (memcmp(searchPtr, "BFCE", taglen) == 0)
+            {
+                // Ignore the end marker for now, it contains no useful data
+                searchPtr += sizeof(BFCErecOv); // Skip forward
+                return false;
+            }
+            else
+                return true; // found something else -- bad.
         }
     }
     return false;
@@ -176,20 +182,33 @@ void CEsp::_doBfcbquickskip(const char * &searchPtr, const char *&endPtr)
         bool bFnd = false;
 
         for (const auto& tag : otags2b)
+        {
+            if (BLEFT < taglen)
+                break;
+
             if (memcmp(searchPtr, tag, taglen) == 0)
             {
                 searchPtr += taglen;
                 searchPtr += sizeof(uint16_t) + *reinterpret_cast<const uint16_t*>(searchPtr);
                 bFnd = true;
             }
+        }
 
         for (const auto& tag : otags4b)
+        {
+            if (BLEFT < taglen)
+                break;
+
             if (memcmp(searchPtr, tag, taglen) == 0)
             {
                 searchPtr += taglen;
                 searchPtr += sizeof(uint32_t) + *reinterpret_cast<const uint32_t*>(searchPtr);
                 bFnd = true;
             }
+        }
+
+        if (BLEFT < taglen)
+            break;
 
         if (memcmp(searchPtr, "BFCE", taglen) == 0) 
             break; // found end of component block - can leave now
@@ -199,14 +218,6 @@ void CEsp::_doBfcbquickskip(const char * &searchPtr, const char *&endPtr)
 
         if (bFnd)
             continue;
-
-        {
-            // for debugging, found something didn't expect, will mean missing a tag to skip in the lists
-            // std::string str = "1234";
-            // memcpy(str.data(), searchPtr, 4);
-            // str += "\n";
-            // dbgout(str); 
-        }
 
         searchPtr++;
     }
@@ -269,6 +280,8 @@ void CEsp::_dobuildsubrecs_mt(const std::vector<const CEsp::GRUPHdrOv *>& vgrps,
                                 oRec.m_compdatasize = oRec.m_pHdr->m_size - sizeof(oRec.m_pHdr->m_decompsize);
                                 oLocalpndts.push_back(oRec);
                                 oLocalFmIdMap[oRec.m_pHdr->m_formid] = GENrec(eType, m_pndts.size() - 1); // Add record to form id map
+
+               
                             }
                             searchPtr += BSKIP(oRec.m_pHdr);
                         }
