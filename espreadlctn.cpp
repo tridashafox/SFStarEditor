@@ -1,5 +1,6 @@
 #include "espmanger.h"
 
+// Read location records LCTN
 
 void CEsp::_dolctn_op_findparts(LCTNrec& oRec, const char* &searchPtr, const char* &endPtr)
 {

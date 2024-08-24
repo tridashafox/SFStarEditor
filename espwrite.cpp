@@ -1,6 +1,10 @@
 #include "espmanger.h"
 
+// Without a true DOM this is the hard bit diffculties compounted by differences in ESM and ESP formats
+// inconistences on how records decide where there sizes start and some records compressed
 
+// Cheat for now where forced to update data directly in read buffer
+// at somepoint all this needs to get replaced with a actually class model with serialization
 template <typename T>
 T* CEsp::makeMutable(const T* ptr)
 {

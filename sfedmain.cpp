@@ -1,5 +1,4 @@
-// sscreater.cpp : Defines the entry point for the application.
-//
+// Windows app part
 #define NOMINMAX
 #include "framework.h"
 #include "sfed.h"
@@ -1404,6 +1403,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 }
 
 // TODO: support planet save - planet positions, clean up saving dlgs etc, surfacemap? Holunini data fix ups?
+// TODO: better map - let positon be selected on map?
 // TODO: show selected star/planet info in dialogs, save and save as show name
 // TODO: support moons
 // TODO: ?when creating a star extend the dialog so it also has the creating planet part as a star must have at least one planet, or change to a wizard with steps
@@ -1411,6 +1411,5 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 // TODO: support editing of biom data
 // TODO: allow 3d view of star/planet
 // TODO: support adding POI
-// TODO: no name appearing on map
 
 

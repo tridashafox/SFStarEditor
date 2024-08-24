@@ -1,5 +1,7 @@
 #include "espmanger.h"
 
+// Read star records stdt
+
 void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const char* &endPtr)
 {
     size_t taglen = 4;

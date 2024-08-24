@@ -2,6 +2,8 @@
 
 const char* SZBADRECORD = "";
 
+// start of read process
+
 // TODO: Really should have created a base class for the record types and avoided this kind of checking type thing
 CEsp::ESPRECTYPE CEsp::getRecType(const char* ptag)
 {
@@ -94,8 +96,8 @@ size_t CEsp::findPrimaryIdx(size_t iIdx, fPos& oSystemPosition)
     return NO_ORBIT;
 }
 
-    // Given index to a star, find sthe orbiting planets
-    // returning these in a vector of idxs of the planets and returns the number found
+// Given index to a star, find sthe orbiting planets
+// returning these in a vector of idxs of the planets and returns the number found
 size_t CEsp::findPndtsFromStdt(size_t iIdx, std::vector<size_t> &oFndPndts)
 {
     oFndPndts.clear();

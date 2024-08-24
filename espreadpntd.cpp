@@ -1,7 +1,8 @@
 #include "espmanger.h"
 
+// Read planets PNDT
+
 // Function to compress the data and store it in the output parameter
-// TODO - not tested
 bool CEsp::compress_data(const char* input_data, size_t input_size, std::vector<char>& compressed_data) 
 {
     // Initialize the compressor object
@@ -89,8 +90,6 @@ void CEsp::_buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& en
 
     if (oRec.m_pHdr->m_formid == FID_Debug_ClassMPlanet)
     {
-        //std::string strErr;
-        //_saveToFile(oRec.m_decompdata, L"F:\\downloads\\CharybdisV_decomp.bin", strErr);
         CEsp::no_op(); // debugging
     }
 
@@ -154,34 +153,8 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
                     {
                         CEsp::no_op(); // debugging
                     }
+
                     oRec.m_isMissingMatchingBfce = _readBFCBtoBFBE(searchPtr, endPtr, oRec.m_oComp);
-                    /*
-                    // Currently treating BFCB-BFBE records as optional since a stdt/pndt can be created this way in ck
-                    const BFCBrecOv *pBfcb = reinterpret_cast<const BFCBrecOv*>(searchPtr);
-                    searchPtr += BSKIP(pBfcb); // Skip forward
-                    const BFCBDatarecOv *pBfcbData = reinterpret_cast<const BFCBDatarecOv*>(searchPtr);
-                    searchPtr += BSKIP(pBfcbData); // Skip forward
-
-                    if (oRec.m_oComp.size()<LIMITCOMPSTO) // FORCE A LIMIT
-                        if (oRec.m_oComp.size()<=MAXCOMPINREC) // Data is bad if above this
-                            oRec.m_oComp.push_back(COMPRec(pBfcb, pBfcbData)); 
-
-                    // Skip stuff we are not intersted in the component, faster than looking for BDCE end tag
-                    _doBfcbquickskip(searchPtr, endPtr);
-
-                    if (memcmp(searchPtr, "BFCB", taglen) == 0)
-                    {
-                        // record that is missing the BFCE end of block record mark it as bad
-                        // bFndMissingBfce = true; -ignore for now about 100 planets have this issue.
-                        oRec.m_isMissingMatchingBfce = true;
-                        continue; 
-                    }
-
-                    if (BLEFT >= sizeof(BFCErecOv))
-                    {
-                        // Ignore the end marker for now, it contains no useful data
-                        searchPtr += sizeof(BFCErecOv); // Skip forward
-                    }*/
                     continue; 
                 }
             }
