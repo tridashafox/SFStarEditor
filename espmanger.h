@@ -653,6 +653,7 @@ private:
     bool _loadfrombuffer(std::string& strErr);
 
     // debuging and info dump
+    void _debugDumpVector(const std::vector<char>& oV, std::string strNamepostfix);
     std::string _dumpComps(const std::vector<COMPRec>& oComps);
     std::string _dumpKeywords(const CEsp::KSIZrecOv* pKsiz, const KWDArecOv* pKwda);
     std::string _dumpStdt(const STDTrec& oRec);
@@ -687,6 +688,7 @@ private:
     void _decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff);
     bool _refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize);
     void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff);
+    void _clonefixupcompsPndt(PNDTrec& oRec);
     bool createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
     bool clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
     

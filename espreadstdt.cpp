@@ -1,7 +1,5 @@
 #include "espmanger.h"
 
-
-
 void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const char* &endPtr)
 {
     size_t taglen = 4;

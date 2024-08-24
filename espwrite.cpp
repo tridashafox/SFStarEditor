@@ -349,7 +349,7 @@ void CEsp::_rebuildStdtRecFromBuffer(STDTrec &oRec, const std::vector<char>&news
 }
 
 // need to fix up component records which where cloned and came from an ESM
-void CEsp::_clonefixupcompsStdt(std::vector<char>& newbuff, STDTrec& oRec)
+void CEsp::_clonefixupcompsStdt(std::vector<char>& newbuff, CEsp::STDTrec& oRec)
 {
     for (const auto& pComp : oRec.m_oComp)
     {
@@ -652,6 +652,37 @@ size_t CEsp::_adjustPlanetPositions(const STDTrec &ostdtRec, size_t iPlanetPos)
     }
 #endif
 
+// need to fix up component records which where cloned and came from an ESM
+void CEsp::_clonefixupcompsPndt(CEsp::PNDTrec& oRec)
+{
+    for (const auto& pComp : oRec.m_oComp)
+    {
+        char* pcompname = (char*)&pComp.m_pBfcbName->m_name;
+        std::string strcname(pcompname);
+        if (strcname == "TESFullName_Component")
+        {
+            if (pComp.m_pBfcbName->m_size > sizeof(FULLrecOv)) // FULL
+            {
+                // Suff in the acutal name here. We might replacing cloned data or some offset value
+                FULLrecOv* pFULLrecOv = reinterpret_cast<FULLrecOv*>(&pcompname[strcname.size()+1]);
+
+                // insert will rebuild oRec after its changes at this point in the fixes oRec has the new name so we dont need BasicInfo
+                _insertname(oRec.m_decompdata, (char *)&pFULLrecOv->m_name, (uint16_t *)&pFULLrecOv->m_size, (char *)&oRec.m_pAnam->m_aname);
+                _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+                _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
+                break;
+            }
+        }
+        else
+        if (strcname == "HoudiniData_Component") // XXXX(4byte size) - PCCC then BETH then etc
+        {
+            // TODO - doesnt not look like it is required - possibly the first
+            // planet_name^[ 0^locks=0 ]^(^"Alpha Centauri"^)& --- ^=0x09, &=0x0A
+            // All output filenames will include this name*name\0 --- *= skip 8 bytes string then null terminator
+        }
+    }
+}
+
 // Make a clone of the passed record in ostdRec, chnaging the clone with the info oBasicInfo
 // put the result in newbuff
 bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const BasicInfoRec &oBasicInfo)
@@ -675,13 +706,15 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     if (!oRec.m_pHdr)
         return false; // should not happen bad hdr ptr
 
+    // Note for planets, pointers in oRec point into the decompressed buffer
+
     // For time being override const, alot of reworking required to make this clear which could get through away if more OV added
     PNDTHdrOv * pMutableHdr = makeMutable(oRec.m_pHdr); 
     pMutableHdr->m_formid = _createNewFormId();
     if (!pMutableHdr->m_formid)
         return false; // id should not be zero, possible bad record
 
-        // Do some validation because a change is better than a rest 
+    // Do some validation because a change is better than a rest 
     if (oBasicInfo.m_iPrimaryIdx > m_stdts.size() || !m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId || 
         !m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam)
         return false; // bad primary index
@@ -694,7 +727,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
         return false; // bad editor name
 
-    // Do work below in the decompressed buffer
+    // Do mods to the decompressed buffer which affect the size.
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pEdid->m_name, (uint16_t *)&oRec.m_pEdid->m_size, oBasicInfo.m_pName);
     _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
@@ -706,7 +739,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
 
-    // Remove POIs, delete contents of CNAM and set its size to zero but keep tag and size of 0
+    // Remove POIs, delete contents of CNAM and set its size to zero but keep tag and the size of 0x0000
     if (oRec.m_pCnam)
     {
         const char* removestart = (reinterpret_cast<const char*>(oRec.m_pCnam)) + sizeof(oRec.m_pCnam->m_CNAMtag) + sizeof(oRec.m_pCnam->m_size);
@@ -717,16 +750,23 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
         _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
         _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
     }
-    // debug
-    // std::string strErr;  _saveToFile(oRec.m_decompdata, L"F:\\downloads\\cut" + std::to_wstring(100) + L".bin", strErr);
-
-    
+ 
     // Another strings to replace?
+
+    // FNAM surface tree?
+    // need the biome exported for landing to work
+    // strings in houdini data see fn below?
+    // planet position not resolved
         
     // Ouch, Now fix up some records which don't work in an ESP if taken from an ESM
-    //_clonefixupcompsStdt(newbuff, oRec);
+    _clonefixupcompsPndt(oRec);
 
-    
+    // Debug will dump the uncompressed data to default downloads directory
+    #ifdef _DEBUG
+    if (IsDebuggerPresent)
+        _debugDumpVector(oRec.m_decompdata, oBasicInfo.m_pName);
+    #endif
+
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
     std::vector<char> newcompressbuffer;
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))

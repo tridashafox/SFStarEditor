@@ -1,4 +1,6 @@
 #include "espmanger.h"
+#include <shlobj.h>  
+#include <comdef.h>  
 
 std::string CEsp::_dumpComps(const std::vector<CEsp::COMPRec> &oComps)
 {
@@ -83,6 +85,26 @@ std::string CEsp::_dumpLctn(const CEsp::LCTNrec& oRec)
     return str;
 }
 
+void CEsp::_debugDumpVector(const std::vector<char>&oV, std::string strNamepostfix)
+{
+    #ifdef _DEBUG
+    PWSTR path = nullptr;
+    if (!(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, NULL, &path))))
+        return;
+
+    _bstr_t bstrPath(path);
+    std::string strpath = (const char*)bstrPath;
+    CoTaskMemFree(path);
+
+    std::string strErr;
+    std::string strDebugOutfn = strpath + "\\DumpVector_" + getFnameRoot() + "_" + strNamepostfix + ".bin";
+    std::filesystem::path filePath(strDebugOutfn);
+    std::wstring wstrFilename = filePath.wstring();
+
+    _saveToFile(oV, wstrFilename, strErr);
+    #endif
+}
+
 void CEsp::_dumpToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend = false) 
 {
     // Open the file in write mode
@@ -99,7 +121,6 @@ void CEsp::_dumpToFile(const std::vector<std::string>& oOutputs, const std::stri
     outFile.close();
 }
 
-// for debugging
 void CEsp::dumptofile(const std::string& fileName)
 {
     std::vector<std::string> oOutputs;
