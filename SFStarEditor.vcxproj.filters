@@ -53,6 +53,9 @@
     <ClCompile Include="espreadlctn.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="espreadbiome.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="sfed2.ico">

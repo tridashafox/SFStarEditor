@@ -1,10 +1,7 @@
 #include "espmanger.h"
 
-// Without a true DOM this is the hard bit diffculties compounted by differences in ESM and ESP formats
-// inconistences on how records decide where there sizes start and some records compressed
+// write operations to save items
 
-// Cheat for now where forced to update data directly in read buffer
-// at somepoint all this needs to get replaced with a actually class model with serialization
 template <typename T>
 T* CEsp::makeMutable(const T* ptr)
 {
@@ -92,7 +89,7 @@ void CEsp::_deleterec(std::vector<char>& newbuff, const char* removestart, const
         newbuff.erase(start, end);
 }
 
-// insert a string into the block of memory over existing string and update the size
+// insert a string into the block of memory over existing string 
 void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
 {
     if (!newbuff.size() || !pDstInsertPosition || !pNewbuff || !iSizeNewBuffer) 
@@ -117,8 +114,6 @@ void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, siz
         // Copy the new name into the buffer at the correct location
         memcpy(newbuff.data() + offset, pNewbuff, newSize);
     }
-
-    // Rebuild oRec because above will have moved memory around invalidating pointers
 } 
 
 
@@ -394,7 +389,13 @@ CEsp::formid_t CEsp::createLocStar(const std::vector<char> &newStarbuff, const B
     // Create an oRec from the passed star buffer so we can easily get info from it
     STDTrec oRec = {};
     _rebuildStdtRecFromBuffer(oRec, newStarbuff);
+    if (!oRec.m_pAnam)
+        return 0;
+
     const char* pAname = reinterpret_cast<const char*>(&oRec.m_pAnam->m_aname);
+    if (!pAname)
+        return 0; 
+
     std::string strStarName = std::string(pAname);
     std::string strLocName ="S" + strStarName;
     uint32_t keywords[] = { KW_LocTypeStarSystem }; 
@@ -847,7 +848,6 @@ bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::str
    
     return true;
 }
-
     
 // Before existing used to check if the data symatics are valid
 bool CEsp::checkdata(std::string& strErr)
@@ -943,9 +943,6 @@ bool CEsp::copyToBak(std::string &strBakUpName, std::string& strErr)
 bool CEsp::save(std::string &strErr)
 {
     strErr.clear();
-    // TODO: CopytoBak not used
-      
-    // TODO: replace with m_wstrfilename, add Save As
     if (!_saveToFile(m_buffer, m_wstrfilename, strErr))
         MKFAIL(strErr);
             

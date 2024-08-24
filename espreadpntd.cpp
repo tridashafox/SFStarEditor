@@ -278,4 +278,3 @@ void CEsp::dopndt_op_mt()
     for (auto& future : futures)
         future.get();
 }
-

@@ -555,11 +555,11 @@ private:
 
 public:
     
-    bool isSaved()                  { return m_bIsSaved; }
-    std::wstring getFname()         { return m_wstrfilename; }
-    std::string getMasterFname()    { return m_strMasterFile; } // The name of the master file the ESP uses. For ESMs this will be empty
-    bool isESM()                    { return m_strMasterFile.empty(); }
-    size_t getMissingBfceCount()    { return m_MissingBfceMap.size(); }
+    bool isSaved() const                { return m_bIsSaved; }
+    std::wstring getFname() const       { return m_wstrfilename; }
+    std::string getMasterFname() const  { return m_strMasterFile; } // The name of the master file the ESP uses. For ESMs this will be empty
+    bool isESM() const                  { return m_strMasterFile.empty(); }
+    size_t getMissingBfceCount() const  { return m_MissingBfceMap.size(); }
 
     void setNewFname(const std::wstring &wstrNewFileName) 
     { 
@@ -718,6 +718,7 @@ public:
     // main operations
     bool makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::string &strErr);
     bool makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::string& strErr);
+    bool getBiome(const CEsp* pSrc, const std::string& strSrcName, const std::string& strDstName, std::string& strErr);
     bool copyToBak(std::string &strBakUpName, std::string& strErr);
     bool checkdata(std::string& strErr);
     bool save(std::string &strErr);
