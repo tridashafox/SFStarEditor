@@ -768,7 +768,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
 
     // Debug will dump the uncompressed data to default downloads directory
     #ifdef _DEBUG
-    if (IsDebuggerPresent)
+    if (IsDebuggerPresent())
         _debugDumpVector(oRec.m_decompdata, oBasicInfo.m_pName);
     #endif
 

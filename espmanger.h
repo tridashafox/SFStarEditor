@@ -718,7 +718,7 @@ public:
     // main operations
     bool makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::string &strErr);
     bool makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::string& strErr);
-    bool getBiome(const CEsp* pSrc, const std::string& strSrcName, const std::string& strDstName, std::string& strErr);
+    bool getBiome(const CEsp* pSrc, const std::string& strSrcName, const std::string& strDstName, std::wstring wstrNewFileName, std::string& strErr);
     bool copyToBak(std::string &strBakUpName, std::string& strErr);
     bool checkdata(std::string& strErr);
     bool save(std::string &strErr);
