@@ -1403,19 +1403,14 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     return (INT_PTR)FALSE;
 }
 
-// TODO: support planet save
-// TODO: show selected star/planet info in dialogs
+// TODO: support planet save - planet positions, clean up saving dlgs etc, surfacemap? Holunini data fix ups?
+// TODO: show selected star/planet info in dialogs, save and save as show name
 // TODO: support moons
 // TODO: ?when creating a star extend the dialog so it also has the creating planet part as a star must have at least one planet, or change to a wizard with steps
 // TODO: extend dialog to allow for more editing of other records of data
 // TODO: support editing of biom data
 // TODO: allow 3d view of star/planet
 // TODO: support adding POI
+// TODO: no name appearing on map
 
 
-// TODO - test saving!
-// 
-// Handle faction value? requires loading of FACT record types (faction) and allowing one to be selected using it's formid from the location record
-//     e.g. create eType for FACT, create maps, create FACTRec, create Ov records, create do_ operations to load, create dump functions.
-// Fix up names in Houndini data for star name - not clear it's needed
-// Save planet data (fixes ups etc)
