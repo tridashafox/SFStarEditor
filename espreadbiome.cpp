@@ -7,8 +7,7 @@
 class CArc
 {
 public:
-    CArc() {};
-    ~CArc() {};
+    CArc() { memset(this, 0, sizeof(CArc)); }
 
 private:
 #pragma pack(push, 2) // force byte alignment
@@ -19,6 +18,7 @@ private:
 		char m_GrnlTag[4];
 		uint32_t m_nfiles;
 		uint64_t m_namePos;
+        ARCHdr() { memset(this, 0, sizeof(ARCHdr)); }
 	};
 	struct FNHdr
 	{
@@ -30,12 +30,13 @@ private:
 		uint32_t m_compsize;
 		uint32_t m_decompsize;
 		uint32_t m_unused2;
+        FNHdr() { memset(this, 0, sizeof(FNHdr)); }
 	};
 
 	struct FNRec
 	{
 		FNHdr m_entry;
-		FNRec(){}
+		FNRec() { memset(this, 0, sizeof(FNRec)); }
 		FNRec(const char *psrc) { memcpy(&m_entry, psrc, sizeof(FNHdr)); }
 	};
 #pragma pack(pop)
@@ -124,7 +125,7 @@ public:
         return _loadHdrs();
     }
 
-    bool extract(const std::wstring wstrPath, const std::string &strSrcName, const std::string &strDstName, std::vector<char>& outbuff)
+    bool extract(const std::string &strSrcName, std::vector<char>& outbuff)
     {
         // find the file rec which matches the passed name
         uint32_t fid;
@@ -169,35 +170,36 @@ public:
     }
 };
 
-bool CEsp::getBiome(const CEsp* pSrc, const std::string &strSrcName, const std::string &strDstName, std::wstring wstrNewFileName, std::string& strErr)
+bool CEsp::makebiomefile(const std::wstring &wstrSrcFilePath, const std::string &strSrcName, const std::string &strDstName, std::wstring wstrNewFileName, std::string& strErr)
 {
 	// Find the arhive file which contains the biom needed use pSrc to help find it
     CArc oArc;
     strErr.clear();
     std::vector<char> buffer;
 
-    std::filesystem::path filePath(pSrc->getFname());
-    std::filesystem::path directory = filePath.parent_path();
-    std::wstring wstrPath = directory;
-
+    std::filesystem::path directory(wstrSrcFilePath);
     directory /= L"Starfield - PlanetData.ba2";
-    std::wstring wstrfn = directory.wstring();
+    std::wstring wstrBiomeArchiveFileName = directory.wstring();
 
-    if (!oArc.loadfile(buffer, wstrfn, strErr))
+    if (!oArc.loadfile(buffer, wstrBiomeArchiveFileName, strErr))
         return false;
 
     std::vector<char> outbuff;
-    if (!oArc.extract(wstrPath,strSrcName, strDstName, outbuff))
-         return false;
+    if (!oArc.extract(strSrcName, outbuff))
+    {
+        std::filesystem::path strarchive(wstrBiomeArchiveFileName);
+        strErr = "Could not extract biome file " + strSrcName + " from " + strarchive.string();
+        return false;
+    }
 
     int str_len = (int)strDstName.length() + 1;
     int len = MultiByteToWideChar(CP_ACP, 0, strDstName.c_str(), str_len, 0, 0);
     std::wstring wstr(len, L'\0');
     MultiByteToWideChar(CP_ACP, 0, strDstName.c_str(), str_len, &wstr[0], len);
 
-    wstrNewFileName =  wstrPath + L"\\" + wstr;
-    if (_saveToFile(outbuff, wstrNewFileName, strErr))
-        return true;
+    wstrNewFileName =  wstrSrcFilePath + L"\\" + wstr;
+    if (!_saveToFile(outbuff, wstrNewFileName, strErr))
+        return false;
 
-    return false;
+    return true;
 } 

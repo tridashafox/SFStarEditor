@@ -1096,8 +1096,6 @@ void _setdlgPos(HWND hDlg, const int iIDCx, const int iIDCy, const int iIDCz, fl
     _setdlgPos(hDlg, iIDCx, iIDCy, iIDCz, oPos);
 }
 
-
-
 // Message handler for create new star/planet wizard
 INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1229,8 +1227,9 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                     size_t iSystemPlayerLevel = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL), CB_GETCURSEL, 0, 0);
                     size_t iSystemPlayerLevelMax = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL_MAX), CB_GETCURSEL, 0, 0);
 
-                    CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, ofPos, iIdxStar, NO_ORBIT, iSystemPlayerLevel, iSystemPlayerLevelMax);
-                    if (!pEspDst->makestar(pEspSrc, oBasicInfo, strErrMsg))
+                    CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, 
+                        ofPos, NO_RECIDX, NO_ORBIT, iSystemPlayerLevel, iSystemPlayerLevelMax);
+                    if (!pEspDst->makestar(pEspSrc, iIdxStar, oBasicInfo, strErrMsg))
                     {
                         std::string msg = std::string("Star creation failed: ") + strErrMsg;
                         MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
@@ -1249,6 +1248,18 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             return (INT_PTR)TRUE;
     }
     return (INT_PTR)FALSE;
+}
+
+// Make a the source planet file name for the Biome file so we can use it to extract the file for a new planet
+std::wstring _buildSrcBiomeFileName()
+{
+    if (!pEspSrc)
+        return L"";
+
+    std::wstring wstrNewFileName;
+    std::filesystem::path filePath(pEspSrc->getFname());
+    std::filesystem::path directory = filePath.parent_path();
+    return directory;
 }
 
 INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -1355,7 +1366,10 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                         MessageBoxA(hDlg, "No source planet has been selected to be used to create the new planet.", "Warning", MB_OK | MB_ICONWARNING);
                         break;
                     }
-                    size_t iIdxPlanet = (CEsp::formid_t) SendMessage(hComboPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    size_t iSrcIdxPlanet = (CEsp::formid_t)SendMessage(hComboPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    std::vector<CEsp::BasicInfoRec> oSrcBasicInfoRecs;
+                    pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oSrcBasicInfoRecs);
+                    CEsp::BasicInfoRec oSrcBasicInfo = oSrcBasicInfoRecs[iSrcIdxPlanet];
 
                     std::string strErrMsg, strPlanetName, strPlanetFormName;
                     if (!GetAndValidateNamefromDlg(hDlg, IDC_EDIT_PNNAME, IDC_EDIT_PNNAMEFORM, strPlanetName, strPlanetFormName, strErrMsg))
@@ -1372,22 +1386,42 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                         MessageBoxA(hDlg, "No destination star for the planet has been selected.", "Warning", MB_OK | MB_ICONWARNING);
                         break;
                     }
-                    size_t  iIdxPrimary = (size_t) SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    size_t  iIdxPrimary = (size_t)SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    std::string strDstStarName(SendMessage(hComboDestStar, CB_GETLBTEXTLEN, selectedIndex, 0) + 1, '\0');
+                    SendMessage(hComboDestStar, CB_GETLBTEXT, selectedIndex, reinterpret_cast<LPARAM>(&strDstStarName[0]));
 
                     HWND hComboPpos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
                     selectedIndex = SendMessage(hComboDestStar, CB_GETCURSEL, 0, 0);
-                    size_t iPlanetPosition = (size_t) SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    size_t iPlanetPosition = (size_t)SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
 
-                    // Save details
-                    CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strPlanetFormName.c_str(), strPlanetName.c_str(), 
-                        false, CEsp::fPos(0,0,0), iIdxPlanet, iIdxPrimary, iPlanetPosition);
-                    if (!pEspDst->makeplanet(pEspSrc, oBasicInfo, strErrMsg))
+                    // Make a Planet
+                    CEsp::BasicInfoRec oDstBasicInfo(CEsp::eESP_STDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
+                        false, NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPosition);
+                    if (!pEspDst->makeplanet(pEspSrc, oSrcBasicInfo.m_iIdx, oDstBasicInfo, strErrMsg))
                     {
                         std::string msg = std::string("Planet creation failed: ") + strErrMsg;
                         MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
                         break;
                     }
+
+                    OutputStr("Planet " + strPlanetFormName + "was created in destination star system " + strDstStarName + " at postion " +
+                        std::to_string(iPlanetPosition) + ".");
                     UpdateStatusBar();
+
+                    // TODO: allow path to be specified in the dialog
+                    // Make a Biome file for the planet 
+                    std::wstring wstrNewFileName;
+                    std::wstring wstrSrcArchivePath = _buildSrcBiomeFileName();
+                    if (!pEspDst->makebiomefile(wstrSrcArchivePath, oSrcBasicInfo.m_pAName, strPlanetName, wstrNewFileName, strErrMsg))
+                    {
+                        std::string msg = std::string("Planet biome file extraction failed: ") + strErrMsg + ". " +
+                            "This means it won't be possible to land on the planet. The biome file is created by accessing the Starfield PlanetData BA2 archive file "
+                            "in the starfield data directory and making a copy of the biome file for the source planet with the name of the new planet.";
+                        MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+                        break;
+                    }
+                    OutputStr("Planet biome file " + wstrtostr(wstrNewFileName) + "was created from source planet " + oSrcBasicInfo.m_pAName +
+                        ". This must be included with your final mod.");
                 }
 
                 EndDialog(hDlg, LOWORD(wParam));

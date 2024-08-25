@@ -476,7 +476,7 @@ bool CEsp::cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const 
 // 2. Maps the record structures onto the clone so values can over written to be the new ones (e.g. new name)
 // 3. Insert the clone into the Dst Eps buffer at the end of the STDT group records
 // 4. Makes location records as required for STDT 
-bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::string &strErr)
+bool CEsp::makestar(const CEsp *pSrc, size_t iSrcStarIdx, const BasicInfoRec &oBasicInfo, std::string &strErr)
 {
     std::vector<char> newStarbuff;
 
@@ -490,7 +490,7 @@ bool CEsp::makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::strin
     // Create and save into m_buffer the new star
     try 
     {
-        if (!cloneStdt(newStarbuff, pSrc->m_stdts[oBasicInfo.m_iIdx], oBasicInfo)) // can throw if found nullptr
+        if (!cloneStdt(newStarbuff, pSrc->m_stdts[iSrcStarIdx], oBasicInfo)) // can throw if found nullptr
             MKFAIL("Could not clone selected star.");
     } 
     catch (const std::runtime_error& e)
@@ -788,7 +788,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     return true;
 }
 
-bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::string& strErr)
+bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, std::string& strErr)
 {
     strErr.clear();
     std::vector<char> newPlanetbuff;
@@ -803,7 +803,7 @@ bool CEsp::makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::str
     // Create and save into m_buffer the new star
     try 
     {
-        if (!clonePndt(newPlanetbuff, pSrc->m_pndts[oBasicInfo.m_iIdx], oBasicInfo)) // can throw if found nullptr
+        if (!clonePndt(newPlanetbuff, pSrc->m_pndts[iSrcPlanetIdx], oBasicInfo)) // can throw if found nullptr
             MKFAIL("Could not clone selected planet.");
     } 
     catch (const std::runtime_error& e)
@@ -879,12 +879,28 @@ bool CEsp::checkdata(std::string& strErr)
     
 bool CEsp::_saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr)
 {
-    std::ofstream outFile(wstrfilename, std::ios::binary);
+    // Extract the directory path from the full file path
+    std::filesystem::path filePath(wstrfilename);
+    std::filesystem::path directoryPath = filePath.parent_path();
 
+    // Create the directory structure if it doesn't exist
+    try 
+    {
+        if (!directoryPath.empty() && !std::filesystem::exists(directoryPath)) 
+            std::filesystem::create_directories(directoryPath);
+    } 
+    catch (const std::filesystem::filesystem_error& e) 
+    {
+        strErr = "Failed to create directories for file: " + std::string(e.what());
+        return false;
+    }
+
+    // Now open the file and write to it
+    std::ofstream outFile(wstrfilename, std::ios::binary);
     
     if (!outFile)
     {
-        strErr = "Failed to open file for writing. " + getFnameAsStr(wstrfilename);
+        strErr = "Failed to open file for writing: " + getFnameAsStr(wstrfilename);
         return false;
     }
     

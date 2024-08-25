@@ -45,6 +45,7 @@ public:
 
 #define NO_ORBIT -1 
 #define NO_RECIDX -1
+#define NO_FPOS CEsp::fPos(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min())
 #define GENBUFFSIZE (1024)
 #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
 #define ESP_FORMIDMASK (0x01FFFFFF) // mask to just affect the top byte of a form id
@@ -716,9 +717,9 @@ public:
     void getStarPositons(std::vector<StarPlotData>& oStarPlots, fPos& min, fPos& max, POSSWAP eSwap);
 
     // main operations
-    bool makestar(const CEsp *pSrc, const BasicInfoRec &oBasicInfo, std::string &strErr);
-    bool makeplanet(const CEsp* pSrc, const BasicInfoRec& oBasicInfo, std::string& strErr);
-    bool getBiome(const CEsp* pSrc, const std::string& strSrcName, const std::string& strDstName, std::wstring wstrNewFileName, std::string& strErr);
+    bool makestar(const CEsp *pSrc, size_t iSrcStarIdx, const BasicInfoRec &oBasicInfo, std::string &strErr);
+    bool makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, std::string& strErr);
+    bool makebiomefile(const std::wstring &wstrSrcFilePath, const std::string& strSrcName, const std::string& strDstName, std::wstring wstrNewFileName, std::string& strErr);
     bool copyToBak(std::string &strBakUpName, std::string& strErr);
     bool checkdata(std::string& strErr);
     bool save(std::string &strErr);
