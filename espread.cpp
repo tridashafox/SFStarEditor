@@ -572,7 +572,7 @@ void CEsp::getStarPositons(std::vector<CEsp::StarPlotData>& oStarPlots, CEsp::fP
 }
 
 // Get all the basic info records given the type
-void CEsp::getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<CEsp::BasicInfoRec>& oBasicInfos)
+void CEsp::getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<CEsp::BasicInfoRec>& oBasicInfos, bool bExcludeBlanks)
 {
     oBasicInfos.clear();
     size_t iCount = getNum(eType);
@@ -580,7 +580,11 @@ void CEsp::getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<CEsp::BasicInfoR
     {
         BasicInfoRec oBasicInfoRec;
         if (getBasicInfo(eType, i, oBasicInfoRec))
-            oBasicInfos.push_back(oBasicInfoRec);
+        {
+            // leave out blank records if requested
+            if (!bExcludeBlanks || (oBasicInfoRec.m_pName && *oBasicInfoRec.m_pName && oBasicInfoRec.m_pAName && *oBasicInfoRec.m_pAName))
+                oBasicInfos.push_back(oBasicInfoRec);
+        }
     }
 }
 

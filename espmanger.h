@@ -585,6 +585,28 @@ public:
         return filePath.filename().string();
     }
 
+    std::string getAnam(ESPRECTYPE eType, size_t iIdx)
+    {
+        switch (eType) 
+        {
+            case eESP_STDT: 
+                if (iIdx < m_stdts.size())
+                    return std::string(reinterpret_cast<const char*>(&m_stdts[iIdx].m_pAnam->m_aname));
+                break;
+
+            case eESP_PNDT:
+                if (iIdx < m_pndts.size())
+                    return std::string(reinterpret_cast<const char*>(&m_pndts[iIdx].m_pAnam->m_aname));
+                break;
+            case eESP_LCTN:
+                if (iIdx < m_lctns.size())
+                    return std::string(reinterpret_cast<const char*>(&m_lctns[iIdx].m_pAnam->m_aname));
+                break;
+        }
+
+        return "";
+    }
+
     size_t getNum(ESPRECTYPE eType)
     {
         switch (eType) {
@@ -699,7 +721,7 @@ private:
 public:
     // UX to CEsp data sharing
     bool getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoRec);
-    void getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<BasicInfoRec>& oBasicInfos);
+    void getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<BasicInfoRec>& oBasicInfos, bool bExcludeblanks = false);
 
     // debugging and bad data
     std::string dumpStats();
@@ -719,7 +741,7 @@ public:
     // main operations
     bool makestar(const CEsp *pSrc, size_t iSrcStarIdx, const BasicInfoRec &oBasicInfo, std::string &strErr);
     bool makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, std::string& strErr);
-    bool makebiomefile(const std::wstring &wstrSrcFilePath, const std::string& strSrcName, const std::string& strDstName, std::wstring wstrNewFileName, std::string& strErr);
+    bool makebiomfile(const std::wstring& wstrSrcFilePath, const std::string& strSrcPlanetName, const std::string& strDstName, std::wstring &wstrNewFileName, std::string& strErr);
     bool copyToBak(std::string &strBakUpName, std::string& strErr);
     bool checkdata(std::string& strErr);
     bool save(std::string &strErr);

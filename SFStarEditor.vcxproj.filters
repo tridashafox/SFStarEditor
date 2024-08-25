@@ -53,7 +53,7 @@
     <ClCompile Include="espreadlctn.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="espreadbiome.cpp">
+    <ClCompile Include="espreadbiom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,11 +3,11 @@
 #include <locale>
 #include <codecvt>
 
-// get and extracted the required biome content for a planet
+// get and extracted the required biom content for a planet
 class CArc
 {
 public:
-    CArc() { memset(this, 0, sizeof(CArc)); }
+    CArc() { }
 
 private:
 #pragma pack(push, 2) // force byte alignment
@@ -18,8 +18,10 @@ private:
 		char m_GrnlTag[4];
 		uint32_t m_nfiles;
 		uint64_t m_namePos;
+        uint64_t unused;
         ARCHdr() { memset(this, 0, sizeof(ARCHdr)); }
 	};
+
 	struct FNHdr
 	{
 		uint32_t m_hash1;
@@ -33,15 +35,9 @@ private:
         FNHdr() { memset(this, 0, sizeof(FNHdr)); }
 	};
 
-	struct FNRec
-	{
-		FNHdr m_entry;
-		FNRec() { memset(this, 0, sizeof(FNRec)); }
-		FNRec(const char *psrc) { memcpy(&m_entry, psrc, sizeof(FNHdr)); }
-	};
 #pragma pack(pop)
 
-	std::vector<FNRec> m_fnrecs;
+	std::vector<FNHdr> m_fnhdrs;
 	std::vector<std::string> m_names;
     std::vector<char> m_buffer;
     ARCHdr m_oHdr;
@@ -56,11 +52,16 @@ private:
         if (memcmp(m_oHdr.m_arcTag, "BTDX", taglen) != 0)
             return false;
 
+        m_fnhdrs.clear();
         if (memcmp(m_oHdr.m_GrnlTag, "GNRL", taglen) == 0)
         {
-            m_fnrecs.resize(m_oHdr.m_nfiles);
-            for (size_t i = 0; i < m_oHdr.m_nfiles; i++)
-                m_fnrecs[i] = FNRec(&m_buffer[searchPos]);
+            for (size_t i = 0; i < m_oHdr.m_nfiles && searchPos + sizeof(FNHdr)<= m_buffer.size(); i++)
+            {
+                FNHdr oFnhdr;
+                memcpy(&oFnhdr, &m_buffer[searchPos], sizeof(FNHdr));
+                m_fnhdrs.push_back(oFnhdr);
+                searchPos += sizeof(FNHdr);
+            }
         }
         else
             return false;
@@ -88,17 +89,25 @@ private:
             memcpy(&filename[0], &m_buffer[searchPos], len);
             searchPos += len;
             filename[len] = '\0';
-            m_names.push_back(std::string(filename.data()));
+            std::string strFn = &filename[0];
+            m_names.push_back(strFn);
         }
         return true;
     }
 
+    std::string toLowerCase(const std::string& str) 
+    {
+        std::string lowerStr = str;
+        std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), [](unsigned char c) { return std::tolower(c); });
+        return lowerStr;
+    }
+
 public:
 
-    bool loadfile(std::vector<char> &m_buffer, const std::wstring wstrfilename, std::string& strErr)
+    bool loadfile(const std::wstring wstrfilename, std::string& strErr)
     {
         m_buffer.clear();
-
+   
         std::string strFn;
         std::filesystem::path filePath(wstrfilename);
         strFn = filePath.string();
@@ -106,7 +115,7 @@ public:
         std::ifstream file(wstrfilename, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
-            strErr = std::string("Could not open archive to retrieve biome ") + strFn;
+            strErr = std::string("Could not open archive to retrieve biom ") + strFn;
             return false;
         }
 
@@ -125,43 +134,58 @@ public:
         return _loadHdrs();
     }
 
-    bool extract(const std::string &strSrcName, std::vector<char>& outbuff)
+    bool extract(const std::string &strSrcName, std::vector<char>& outbuff, std::string &strErr)
     {
         // find the file rec which matches the passed name
+        std::string strTofind = toLowerCase(strSrcName);
+
         uint32_t fid;
         for (fid = 0; fid<m_names.size(); fid++)
-            if (m_names[fid] == strSrcName)
+            if (m_names[fid] == strTofind)
                 break;
-        if (fid >= m_fnrecs.size())
+
+        if (fid >= m_fnhdrs.size())
+        {
+            strErr = "file not found in archive";
             return false;
+        }
 
         // set up the out buff
-        bool bComp = m_fnrecs[fid].m_entry.m_compsize > 0;
+        bool bComp = m_fnhdrs[fid].m_compsize > 0;
         std::vector<uint8_t>decompbuff;
-        decompbuff.resize(m_fnrecs[fid].m_entry.m_decompsize);
-        outbuff.resize(m_fnrecs[fid].m_entry.m_decompsize);
+        decompbuff.resize(m_fnhdrs[fid].m_decompsize);
+        outbuff.resize(m_fnhdrs[fid].m_decompsize);
 
-        size_t searchPtr = m_fnrecs[fid].m_entry.m_offset;
+        size_t searchPtr = m_fnhdrs[fid].m_offset;
         if (bComp) 
         {
-            if (searchPtr + m_fnrecs[fid].m_entry.m_compsize > m_buffer.size())
+            if (searchPtr + m_fnhdrs[fid].m_compsize > m_buffer.size())
+            {
+                strErr = "Ran passed end of archive";
                 return false;
+            }
 
-            std::vector<uint8_t> comp(m_fnrecs[fid].m_entry.m_compsize);
-            std::copy(m_buffer.begin() + searchPtr, m_buffer.begin() + searchPtr + m_fnrecs[fid].m_entry.m_compsize, comp.begin());
+            std::vector<uint8_t> comp(m_fnhdrs[fid].m_compsize);
+            std::copy(m_buffer.begin() + searchPtr, m_buffer.begin() + searchPtr + m_fnhdrs[fid].m_compsize, comp.begin());
 
             // do the decompress
             uLongf destLen = static_cast<uLongf>(outbuff.size());
             uLong lsize = static_cast<uLong>(comp.size());
             if (uncompress(decompbuff.data(), &destLen, comp.data(), lsize) != Z_OK)
+            {
+                strErr = "Failed to decompress data in archive";
                 return false;
+            }
 
             std::copy(decompbuff.begin(), decompbuff.end(), outbuff.begin());
         } 
         else 
         {
             if (searchPtr + outbuff.size() > m_buffer.size())
+            {
+                strErr = "Ran passed end of archive";
                 return false;
+            }
 
             std::copy(m_buffer.begin() + searchPtr, m_buffer.begin() + searchPtr + outbuff.size(), outbuff.begin());
         }
@@ -170,32 +194,36 @@ public:
     }
 };
 
-bool CEsp::makebiomefile(const std::wstring &wstrSrcFilePath, const std::string &strSrcName, const std::string &strDstName, std::wstring wstrNewFileName, std::string& strErr)
+bool CEsp::makebiomfile(const std::wstring &wstrSrcFilePath, const std::string &strSrcPlanetName, const std::string &strDstName, std::wstring &wstrNewFileName, std::string& strErr)
 {
 	// Find the arhive file which contains the biom needed use pSrc to help find it
     CArc oArc;
     strErr.clear();
-    std::vector<char> buffer;
 
     std::filesystem::path directory(wstrSrcFilePath);
     directory /= L"Starfield - PlanetData.ba2";
-    std::wstring wstrBiomeArchiveFileName = directory.wstring();
+    std::wstring wstrbiomArchiveFileName = directory.wstring();
 
-    if (!oArc.loadfile(buffer, wstrBiomeArchiveFileName, strErr))
+    if (!oArc.loadfile(wstrbiomArchiveFileName, strErr))
         return false;
 
     std::vector<char> outbuff;
-    if (!oArc.extract(strSrcName, outbuff))
+    const std::string strnestedpath = "planetdata/biomemaps/";
+    std::string strSrcPlanetNameWithPathAndExt = strnestedpath + strSrcPlanetName + ".biom";
+
+    if (!oArc.extract(strSrcPlanetNameWithPathAndExt, outbuff, strErr))
     {
-        std::filesystem::path strarchive(wstrBiomeArchiveFileName);
-        strErr = "Could not extract biome file " + strSrcName + " from " + strarchive.string();
+        std::filesystem::path strarchive(wstrbiomArchiveFileName);
+        strErr = "Could not extract biom file '" + strSrcPlanetName + "' from " + strarchive.string() + ". Error: " + strErr;
         return false;
     }
 
-    int str_len = (int)strDstName.length() + 1;
-    int len = MultiByteToWideChar(CP_ACP, 0, strDstName.c_str(), str_len, 0, 0);
+    // make it wide char for dest file name with correct path
+    std::string strDstNamewithnested = "planetdata\\biomemaps\\" + strDstName + ".biom";
+    int str_len = (int)strDstNamewithnested.length() + 1;
+    int len = MultiByteToWideChar(CP_ACP, 0, strDstNamewithnested.c_str(), str_len, 0, 0);
     std::wstring wstr(len, L'\0');
-    MultiByteToWideChar(CP_ACP, 0, strDstName.c_str(), str_len, &wstr[0], len);
+    MultiByteToWideChar(CP_ACP, 0, strDstNamewithnested.c_str(), str_len, &wstr[0], len);
 
     wstrNewFileName =  wstrSrcFilePath + L"\\" + wstr;
     if (!_saveToFile(outbuff, wstrNewFileName, strErr))
