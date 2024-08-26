@@ -118,6 +118,18 @@ std::string strfnTrunc(std::string sfn, int iTruncate=36)
     return sfn.size() > iTruncate ? std::string("...") + sfn.substr(sfn.size() - iTruncate) : sfn;
 }
 
+// Make a the source planet file name for the biom file so we can use it to extract the file for a new planet
+std::wstring _buildSrcbiomFileName()
+{
+    if (!pEspSrc)
+        return L"";
+
+    std::wstring wstrNewFileName;
+    std::filesystem::path filePath(pEspSrc->getFname());
+    std::filesystem::path directory = filePath.parent_path();
+    return directory;
+}
+
 // Covert binary stream to hex editor style output for debugging
 std::string binaryTostr(const char *pcbuff, size_t size) 
 {
@@ -554,7 +566,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     std::wstring wstrDst = L"D:\\SteamLibrary\\steamapps\\common\\Starfield\\Data\\test.esp";
                     LoadESP(pEspSrc, wstrSrc.c_str());
                     LoadESP(pEspDst, wstrDst.c_str());
-                    UpdateStatusBar();
+                    
+                    /* slow op to check all bioms can be found in archive - debugging
+                    std::vector<std::string> strErrs;
+                    std::wstring wstrArchivename = _buildSrcbiomFileName();
+                    if (!pEspSrc->checkformissingbiom(wstrArchivename, strErrs))
+                        OutputStr("Found " + std::to_string(strErrs.size()) + " missing biom files in archive");
+                    */
                 }
                 else
                 {
@@ -1224,11 +1242,12 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                         break;
                     }
 
+                    // TODO handle faction
                     size_t iSystemPlayerLevel = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL), CB_GETCURSEL, 0, 0);
                     size_t iSystemPlayerLevelMax = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL_MAX), CB_GETCURSEL, 0, 0);
 
-                    CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, 
-                        ofPos, NO_RECIDX, NO_ORBIT, iSystemPlayerLevel, iSystemPlayerLevelMax);
+                    CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, false, 
+                        ofPos, NO_RECIDX, NO_ORBIT, NO_PLANETPOS, iSystemPlayerLevel, iSystemPlayerLevelMax, NO_FACTION);
                     if (!pEspDst->makestar(pEspSrc, iIdxStar, oBasicInfo, strErrMsg))
                     {
                         std::string msg = std::string("Star creation failed: ") + strErrMsg;
@@ -1250,17 +1269,96 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return (INT_PTR)FALSE;
 }
 
-// Make a the source planet file name for the biom file so we can use it to extract the file for a new planet
-std::wstring _buildSrcbiomFileName()
-{
-    if (!pEspSrc)
-        return L"";
 
-    std::wstring wstrNewFileName;
-    std::filesystem::path filePath(pEspSrc->getFname());
-    std::filesystem::path directory = filePath.parent_path();
-    return directory;
+// code to make a planet and extract the biom file
+bool _dlgMakePlanet(HWND hDlg)
+{
+    if (!pEspDst)
+    {
+        MessageBoxA(hDlg, "No destination ESP file for saving was selected.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    HWND hComboPlanet = GetDlgItem(hDlg, IDC_COMBO3);
+    LRESULT selectedIndex = SendMessage(hComboPlanet, CB_GETCURSEL, 0, 0);
+    if (selectedIndex == CB_ERR)
+    {
+        MessageBoxA(hDlg, "No source planet has been selected to be used to create the new planet.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    size_t iSrcIdxPlanet = (CEsp::formid_t)SendMessage(hComboPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+    std::string strErrMsg, strPlanetName, strPlanetFormName;
+    if (!GetAndValidateNamefromDlg(hDlg, IDC_EDIT_PNNAME, IDC_EDIT_PNNAMEFORM, strPlanetName, strPlanetFormName, strErrMsg))
+    {
+        std::string msg = std::string("The name of the planet has an error: ") + strErrMsg;
+        MessageBoxA(hDlg, msg.c_str(), "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    HWND hComboDestStar = GetDlgItem(hDlg, IDC_COMBO4);
+    selectedIndex = SendMessage(hComboDestStar, CB_GETCURSEL, 0, 0);
+    if (selectedIndex == CB_ERR)
+    {
+        MessageBoxA(hDlg, "No destination star for the planet has been selected.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    size_t  iIdxPrimary = (size_t)SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+    // get the planet positon
+    size_t iPlanetPosition = (size_t)SendMessage(GetDlgItem(hDlg, IDC_COMBOPLNNUM), CB_GETCURSEL, 0, 0);
+
+    // TODO: allow path to be specified in the dialog
+    // Make a biom file for the planet if required
+
+    CEsp::BasicInfoRec oSrcBasicInfoPlanet;
+    pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iSrcIdxPlanet, oSrcBasicInfoPlanet);
+
+    if (oSrcBasicInfoPlanet.m_bIsLandable)
+    {
+        std::wstring wstrNewFileName;
+        std::wstring wstrSrcArchivePath = _buildSrcbiomFileName();
+        std::string strSrcPlanetName = oSrcBasicInfoPlanet.m_pAName;
+        if (!pEspDst->makebiomfile(wstrSrcArchivePath, strSrcPlanetName, strPlanetName, wstrNewFileName, strErrMsg))
+        {
+            std::string msg = std::string("Planet biom file extraction failed: ") + strErrMsg + ". Ignoring this will mean the planet cannot be landed on in game.";
+            if (MessageBoxA(hDlg, msg.c_str(), "Error", MB_OKCANCEL | MB_DEFBUTTON2) == IDCANCEL)
+                return false;
+        }
+        OutputStr("Planet biom file " + wstrtostr(wstrNewFileName) + " was extracted to be used for the new planet. This must be included with your final mod.");
+    }
+    else
+        OutputStr("Planet biom file not extracted as source planet is not landable and has no biom data, i.e. it is as a gas giant.");
+
+    // TODO handle moons
+    // find primary so we can copy over player level and faction info to new planet
+    CEsp::BasicInfoRec oDstBasicInfoPrimaryStar;
+    pEspDst->getBasicInfo(CEsp::eESP_STDT, iIdxPrimary, oDstBasicInfoPrimaryStar);
+
+    // New planet record
+    CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
+        false, true,
+        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPosition, 
+        oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
+
+    // Make a planet
+    if (!pEspDst->makeplanet(pEspSrc, iSrcIdxPlanet, oDstBasicInfoNewPlanet, strErrMsg))
+    {
+        std::string msg = std::string("Planet creation failed: ") + strErrMsg;
+        MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    std::string strMsg = "Planet " + strPlanetFormName + " was created in destination star system "
+        + pEspDst->getAnam(CEsp::eESP_STDT, iIdxPrimary) + " at postion " + std::to_string(iPlanetPosition)
+        + " with player level min/max " + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvl) + "-" + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvlMax)
+        + " faction " + std::to_string(oDstBasicInfoNewPlanet.m_iFaction) + ".";
+    OutputStr(strMsg);
+    UpdateStatusBar();
+
+    return true;
 }
+
 
 INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1271,6 +1369,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
             {
                 // Hide moons by default
                 CheckDlgButton(hDlg, IDC_CHECK2, BST_CHECKED); 
+                CheckDlgButton(hDlg,  IDC_CHECKUNLAND, BST_CHECKED); 
 
                 // Populate Combo with src stars
                 std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
@@ -1318,7 +1417,8 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                 {
                     std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
                     bool IncludeMoons = !(IsDlgButtonChecked(hDlg, IDC_CHECK2) == BST_CHECKED);
-                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, IncludeMoons);
+                    bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
+                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, IncludeMoons, IncludeUnlandable);
 
                     HWND hCombo = GetDlgItem(hDlg, IDC_COMBO3);
                     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
@@ -1336,80 +1436,15 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                 }
             }
             else
-            if (LOWORD(wParam) == IDC_CHECK2 && HIWORD(wParam) == BN_CLICKED)
+            if ((LOWORD(wParam) == IDC_CHECK2 || LOWORD(wParam) == IDC_CHECKUNLAND) && HIWORD(wParam) == BN_CLICKED)
             {
                 SendMessageA(hDlg, WM_COMMAND, MAKEWPARAM(IDC_COMBO2, CBN_SELCHANGE), (LPARAM)GetDlgItem(hDlg, IDC_COMBO2));
             }
             else
             if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
             {
-                if (LOWORD(wParam) == IDOK)
-                {
-                    if (!pEspDst)
-                    {
-                        MessageBoxA(hDlg, "No destination ESP file for saving was selected.", "Warning", MB_OK | MB_ICONWARNING);
-                        break;
-                    }
-
-                    HWND hComboPlanet = GetDlgItem(hDlg, IDC_COMBO3);
-                    LRESULT selectedIndex = SendMessage(hComboPlanet, CB_GETCURSEL, 0, 0);
-                    if (selectedIndex == CB_ERR)
-                    {
-                        MessageBoxA(hDlg, "No source planet has been selected to be used to create the new planet.", "Warning", MB_OK | MB_ICONWARNING);
-                        break;
-                    }
-                    size_t iSrcIdxPlanet = (CEsp::formid_t)SendMessage(hComboPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
-
-                    std::string strErrMsg, strPlanetName, strPlanetFormName;
-                    if (!GetAndValidateNamefromDlg(hDlg, IDC_EDIT_PNNAME, IDC_EDIT_PNNAMEFORM, strPlanetName, strPlanetFormName, strErrMsg))
-                    {
-                        std::string msg = std::string("The name of the planet has an error: ") + strErrMsg;
-                        MessageBoxA(hDlg, msg.c_str(), "Warning", MB_OK | MB_ICONWARNING);
-                        break;
-                    }
-
-                    HWND hComboDestStar = GetDlgItem(hDlg, IDC_COMBO4);
-                    selectedIndex = SendMessage(hComboDestStar, CB_GETCURSEL, 0, 0);
-                    if (selectedIndex == CB_ERR)
-                    {
-                        MessageBoxA(hDlg, "No destination star for the planet has been selected.", "Warning", MB_OK | MB_ICONWARNING);
-                        break;
-                    }
-                    size_t  iIdxPrimary = (size_t)SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
-
-                    // get the planet positon
-                    size_t iPlanetPosition = (size_t)SendMessage(GetDlgItem(hDlg, IDC_COMBOPLNNUM), CB_GETCURSEL, 0, 0);
-
-                    // TODO: allow path to be specified in the dialog
-                    // Make a biom file for the planet 
-                    std::wstring wstrNewFileName;
-                    std::wstring wstrSrcArchivePath = _buildSrcbiomFileName();
-                    std::string strSrcPlanetName = pEspSrc->getAnam(CEsp::eESP_PNDT, iSrcIdxPlanet);
-
-                    if (!pEspDst->makebiomfile(wstrSrcArchivePath, strSrcPlanetName, strPlanetName, wstrNewFileName, strErrMsg))
-                    {
-                        std::string msg = std::string("Planet biom file extraction failed: ") + strErrMsg + ". Ignoring this will mean the planet cannot be landed on in game.";
-                        if (MessageBoxA(hDlg, msg.c_str(), "Error", MB_OKCANCEL | MB_DEFBUTTON2)==IDCANCEL)
-                            break;
-                    }
-                    OutputStr("Planet biom file " + wstrtostr(wstrNewFileName) + " was extracted to be used for the new planet. This must be included with your final mod.");
-
-                    // Make a Planet
-                    CEsp::BasicInfoRec oDstBasicInfo(CEsp::eESP_STDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
-                        false, NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPosition);                    
-                    if (!pEspDst->makeplanet(pEspSrc, iSrcIdxPlanet, oDstBasicInfo, strErrMsg))
-                    {
-                        std::string msg = std::string("Planet creation failed: ") + strErrMsg;
-                        MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
-                        break;
-                    }
-
-                    std::string strMsg = "Planet " + strPlanetFormName + " was created in destination star system "
-                        + pEspDst->getAnam(CEsp::eESP_STDT, iIdxPrimary)  + " at postion " + std::to_string(iPlanetPosition) + ".";
-                    OutputStr(strMsg);
-                    UpdateStatusBar();
-                }
-
+                if (LOWORD(wParam) == IDOK && !_dlgMakePlanet(hDlg))
+                    break;
                 EndDialog(hDlg, LOWORD(wParam));
                 return (INT_PTR)TRUE;
             }
@@ -1422,6 +1457,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     return (INT_PTR)FALSE;
 }
 
+// TODO: test biom works - solve that gas giants don't have biom files
 // TODO: support planet save - planet positions, clean up saving dlgs etc, surfacemap? Holunini data fix ups?
 // TODO: better map - let positon be selected on map?
 // TODO: show selected star/planet info in dialogs, save and save as show name

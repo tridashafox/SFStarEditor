@@ -49,7 +49,7 @@ bool CEsp::findKeyword(const LCTNrec &oRec , uint32_t iKeyword)
 
 // Given a STDT rec goes and finds the locations that go with it
 // So it can work out the player level and returns this
-bool CEsp::findPlayerLvl(const STDTrec &oRecStar, size_t &iPlayerLvl, size_t &iPlayerLvlMax)
+bool CEsp::findLocInfo(const STDTrec &oRecStar, size_t &iPlayerLvl, size_t &iPlayerLvlMax, size_t &iFaction)
 {
     iPlayerLvl = 0;
     iPlayerLvlMax = 255;
@@ -65,6 +65,7 @@ bool CEsp::findPlayerLvl(const STDTrec &oRecStar, size_t &iPlayerLvl, size_t &iP
                 {
                     iPlayerLvl = m_lctns[oGen.m_iIdx].m_pData->m_playerLvl;
                     iPlayerLvlMax = m_lctns[oGen.m_iIdx].m_pData->m_playerLvlMax;
+                    iFaction = m_lctns[oGen.m_iIdx].m_pData->m_faction;
                     return true;
                 }
             }
@@ -348,6 +349,62 @@ size_t CEsp::getmtclunks(size_t num_pointers, size_t& num_threads)
     return (num_pointers + num_threads - 1) / num_threads; // Ceiling division
 }
 
+// pulls togather info from star and locations to create star basic info rec give index to planet in m_stdts 
+CEsp::BasicInfoRec CEsp::_makeBasicStarRec(const size_t iIdx)
+{
+    size_t iPlayerLvl = MIN_PLAYERLEVEL;
+    size_t iPlayerLvlMax = MAX_PLAYERLEVEL;
+    size_t iFaction = NO_FACTION;
+
+    findLocInfo(m_stdts[iIdx], iPlayerLvl, iPlayerLvlMax, iFaction);
+
+    return BasicInfoRec(eESP_STDT,
+        (const char*)&m_stdts[iIdx].m_pEdid->m_name,
+        (const char*)&m_stdts[iIdx].m_pAnam->m_aname,
+        false, false,
+        m_stdts[iIdx].getfPos(), iIdx, NO_ORBIT, NO_PLANETPOS,
+        iPlayerLvl, iPlayerLvlMax, iFaction);
+}
+
+// pulls togather info from star and locations to create planet basic info rec give index to planet in m_pndts 
+CEsp::BasicInfoRec CEsp::_makeBasicPlanetRec(const size_t iIdx)
+{
+    size_t iPlayerLvl = MIN_PLAYERLEVEL;
+    size_t iPlayerLvlMax = MAX_PLAYERLEVEL;
+    size_t iFaction = NO_FACTION;
+
+    fPos oSystemPosition;
+    size_t iPrimaryIdx = findPrimaryIdx(iIdx, oSystemPosition);
+
+    bool bisMoon = m_pndts[iIdx].m_pGnam->m_primePndtId; // Planet as a primary planet id it is a moom
+    bool bIsLandable = m_pndts[iIdx].m_oPpbds.size() != 0; // Planet has  biom records, it is landable
+
+    // Find the Primary star of the planet if it exists and not a moon
+    if (!bisMoon && iPrimaryIdx < m_stdts.size()) // find the lvls if valid primary index
+        findLocInfo(m_stdts[iPrimaryIdx], iPlayerLvl, iPlayerLvlMax, iFaction);
+
+    return BasicInfoRec(eESP_PNDT,
+        (const char*)&m_pndts[iIdx].m_pEdid->m_name,
+        (const char*)&m_pndts[iIdx].m_pAnam->m_aname,
+        bisMoon, bIsLandable,
+        oSystemPosition, iIdx, iPrimaryIdx, m_pndts[iIdx].m_pGnam->m_pndtId,
+        iPlayerLvl, iPlayerLvlMax, iFaction);
+}
+
+CEsp::BasicInfoRec CEsp::_makeBasicLocRec(const size_t iIdx)
+{
+    // TODO get fpos info from assoicated star (not sure it's needed anywhere at the moment
+    // would be the reverse of findLocInfo
+
+    return BasicInfoRec(eESP_LCTN,
+        (const char*)&m_lctns[iIdx].m_pEdid->m_name,
+        (const char*)&m_lctns[iIdx].m_pAnam->m_aname,
+        false, false,
+        NO_FPOS, iIdx, NO_ORBIT, NO_PLANETPOS,
+        m_lctns[iIdx].m_pData->m_playerLvl, m_lctns[iIdx].m_pData->m_playerLvlMax, m_lctns[iIdx].m_pData->m_faction);
+}
+
+
 // Used to provide basic info to be used in the UX
 // provides info for one record of type eType and positon iIdx in the collection
 bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoRec)
@@ -358,13 +415,7 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
         case eESP_STDT:
             if (iIdx >= 0 && iIdx < m_stdts.size() && !m_stdts[iIdx].m_isBad)
             {
-                size_t iPlayerLvl = 0;
-                size_t iPlayerLvlMax = 255;
-                findPlayerLvl(m_stdts[iIdx], iPlayerLvl, iPlayerLvlMax);
-                oBasicInfoRec = BasicInfoRec(eType,
-                    (const char*)&m_stdts[iIdx].m_pEdid->m_name,
-                    (const char*)&m_stdts[iIdx].m_pAnam->m_aname, false,
-                    m_stdts[iIdx].getfPos(), iIdx, 0, 0, iPlayerLvl, iPlayerLvlMax);
+                oBasicInfoRec = _makeBasicStarRec(iIdx);
                 return true;
             }
             break;
@@ -372,15 +423,7 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
         case eESP_PNDT:
             if (iIdx >= 0 && iIdx < m_pndts.size() && !m_pndts[iIdx].m_isBad)
             {
-                fPos oSystemPosition;
-
-                // Find the Primary star of the planet if it exists
-                // TODO: handle case if Primary is a planet
-                size_t iPrimaryIdx = findPrimaryIdx(iIdx, oSystemPosition);
-                oBasicInfoRec = BasicInfoRec(eType, 
-                    (const char*)&m_pndts[iIdx].m_pEdid->m_name, 
-                    (const char*)&m_pndts[iIdx].m_pAnam->m_aname, 
-                    m_pndts[iIdx].m_pGnam->m_primePndtId != 0, oSystemPosition, iIdx, iPrimaryIdx);
+                oBasicInfoRec = _makeBasicPlanetRec(iIdx);
                 return true;
             }
             break;
@@ -388,11 +431,7 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
         case eESP_LCTN:
             if (iIdx >= 0 && iIdx < m_lctns.size() && !m_lctns[iIdx].m_isBad)
             {
-                fPos oNoPos(0,0,0);
-                oBasicInfoRec = BasicInfoRec(eType, 
-                    (const char*)&m_lctns[iIdx].m_pEdid->m_name, 
-                    (const char*)&m_lctns[iIdx].m_pAnam->m_aname, 
-                    0, oNoPos, iIdx, 0, m_lctns[iIdx].m_pData->m_playerLvl, m_lctns[iIdx].m_pData->m_playerLvlMax);
+                oBasicInfoRec = _makeBasicLocRec(iIdx);
                 return true;
             }
             break;
@@ -403,7 +442,8 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
 
 // Get all the basic info records for the planets oribiting the passed Primary
 // TODO: support passing a planet as a primary
-void CEsp::getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, CEsp::formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, bool bIncludeMoons)
+void CEsp::getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, CEsp::formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, 
+    bool bIncludeMoons, bool bIncludeUnlandable)
 {
     oBasicInfos.clear();
     oBasicInfos.shrink_to_fit();
@@ -422,11 +462,13 @@ void CEsp::getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, CEsp::formid_
                 if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
                 {
                     bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_primePndtId != 0;
-                    if (bIncludeMoons || !bIsMoon)
-                        oBasicInfos.push_back(BasicInfoRec(eESP_PNDT, 
-                            (const char*)&m_pndts[oRec.m_iIdx].m_pEdid->m_name, 
-                            (const char*)&m_pndts[oRec.m_iIdx].m_pAnam->m_aname,
-                            bIsMoon, m_stdts[iPrimary].getfPos(), oRec.m_iIdx, iPrimary));
+                    bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
+                    if ((bIncludeMoons || !bIsMoon) &&
+                        (bIncludeUnlandable || bIsLandable))
+                    {
+                        BasicInfoRec oBasicInfoPlanet =_makeBasicPlanetRec(oRec.m_iIdx);
+                        oBasicInfos.push_back(oBasicInfoPlanet);
+                    }
                 }
             }
         }

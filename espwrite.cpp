@@ -788,6 +788,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     return true;
 }
 
+// Make a planet
 bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, std::string& strErr)
 {
     strErr.clear();

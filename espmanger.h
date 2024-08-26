@@ -46,6 +46,10 @@ public:
 #define NO_ORBIT -1 
 #define NO_RECIDX -1
 #define NO_FPOS CEsp::fPos(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min())
+#define MIN_PLAYERLEVEL (0)
+#define MAX_PLAYERLEVEL (255)
+#define NO_FACTION (0)
+#define NO_PLANETPOS (0)
 #define GENBUFFSIZE (1024)
 #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
 #define ESP_FORMIDMASK (0x01FFFFFF) // mask to just affect the top byte of a form id
@@ -68,6 +72,8 @@ public:
     const uint32_t KW_LoctTypeSurface = 0x16503;
     const uint32_t KW_LoctTypeOrbit = 0x16504;
 
+    const uint32_t KW_PlanetType03GasGiant = 0x295ed2; // don't have biom
+
     const formid_t FID_Universe = 0x1A53A;
     const formid_t FID_Debug_ClassMPlanet = 0x5e009;
 
@@ -88,15 +94,18 @@ public:
     {
         BasicInfoRec() { clear(); }
         BasicInfoRec(const ESPRECTYPE eType, const char* pName, const char* pAName,
-            const bool bMoon, const fPos& oPos, const size_t iIdx, const size_t iPrimaryIdx = NO_ORBIT, const size_t iPlanetPos = 0,
-            const size_t iSysPlayerLvl = 70, const size_t iSysPlayerLvlMax = 255, const size_t iFaction = 0) :
-            m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_StarMapPostion(oPos),
+            const bool bMoon, const bool bLandable, 
+            const fPos& oPos, const size_t iIdx, 
+            const size_t iPrimaryIdx, const size_t iPlanetPos,
+            const size_t iSysPlayerLvl, const size_t iSysPlayerLvlMax, const size_t iFaction) :
+            m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_bIsLandable(bLandable), m_StarMapPostion(oPos),
             m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPos(iPlanetPos), m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
             m_iFaction(iFaction) {}
         void clear()
         {
             m_pName = m_pAName = SZBADRECORD;
             m_bIsMoon = false;
+            m_bIsLandable = true;
             m_StarMapPostion.clear();
             m_eType = eESP_IDK;
             m_iIdx = NO_RECIDX;
@@ -110,6 +119,7 @@ public:
         const char* m_pName;   // Form name
         const char* m_pAName;  // Presentation name
         bool m_bIsMoon;        // If the object is a moon
+        bool m_bIsLandable;    // True of the planet can be landed on (it is not a gas giant) - it has a biom file and PPBD records
         fPos m_StarMapPostion; // Position on the star map
         ESPRECTYPE m_eType;    // Type of object
         size_t m_iIdx;         // Idx to core data
@@ -418,7 +428,7 @@ private:
         // TODO: other records
         const PNDTAnamOv* m_pAnam;
         const PNDTCnamOv* m_pCnam;
-        std::vector<const PPBDOv*> m_oPpbds; // Set of PPBD records 
+        std::vector<const PPBDOv*> m_oPpbds; // Set of PPBD records which old biom information
         const PNDTGnamOv* m_pGnam;
     };
 
@@ -641,7 +651,7 @@ private:
     bool findFmIDMap(formid_t formid, GENrec& fndrec);
     void mergeFmIDMaps(std::unordered_map<formid_t, GENrec>& targetMap, const std::unordered_map<formid_t, GENrec>& sourceMap);
     bool findKeyword(const LCTNrec& oRec, uint32_t iKeyword);
-    bool findPlayerLvl(const STDTrec& oRecStar, size_t& iPlayerLvl, size_t& iPlayerLvlMax);
+    bool findLocInfo(const STDTrec& oRecStar, size_t& iPlayerLvl, size_t& iPlayerLvlMax, size_t &iFaction);
     size_t findPrimaryIdx(size_t iIdx, fPos& oSystemPosition);
     size_t findPndtsFromStdt(size_t iIdx, std::vector<size_t>& oFndPndts);
     bool isBadPosition(const fPos& oPos);
@@ -652,6 +662,7 @@ private:
     size_t getmtclunks(size_t num_pointers, size_t& num_threads);
 
     // planets
+    BasicInfoRec _makeBasicPlanetRec(const size_t iIdx);
     void _buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op(size_t iPndtIdx);
@@ -659,12 +670,14 @@ private:
     void dopndt_op_mt();
 
     // stars
+    BasicInfoRec _makeBasicStarRec(const size_t iIdx);
     void _dostdt_op_findparts(STDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void process_stdt_ranged_op_mt(size_t start, size_t end);
     void _dostdt_op(size_t iStdtIdx);
     void dostdt_op_mt();
 
     // Locations
+    BasicInfoRec _makeBasicLocRec(const size_t iIdx);
     void _dolctn_op_findparts(LCTNrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dolctn_op(size_t iIdx);
     void process_lctn_ranged_op_mt(size_t start, size_t end);
@@ -718,6 +731,7 @@ private:
     // main modifications
     bool _saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr);
 
+
 public:
     // UX to CEsp data sharing
     bool getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoRec);
@@ -727,10 +741,11 @@ public:
     std::string dumpStats();
     void dumptofile(const std::string& fileName);
     size_t dumpBadRecs(std::vector<std::string>& oOutputs);
+    bool checkformissingbiom(const std::wstring& wstrSrcFilePath, std::vector<std::string>& strErrs);
 
     // for star map
     float calcDist(const fPos& p1, const fPos& p2);
-    void getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, bool bIncludeMoons);
+    void getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);
     float findClosestDist(const size_t iSelfIdx, const fPos &targetPos, const std::vector<BasicInfoRec>& oBasicInfoRecs, size_t& idx);
     float getMinDistance(float fMinDistance = std::numeric_limits<float>::max());
     bool checkMinDistance(const fPos& ofPos, float fMinDistance, std::string &strErr);

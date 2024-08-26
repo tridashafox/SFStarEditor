@@ -194,6 +194,38 @@ public:
     }
 };
 
+// for debugging looks at all stars and planets for biom files missing from the archive
+bool CEsp::checkformissingbiom(const std::wstring &wstrSrcFilePath, std::vector<std::string>&strErrs)
+{
+    CArc oArc;
+    std::string strErr;
+
+    std::filesystem::path directory(wstrSrcFilePath);
+    directory /= L"Starfield - PlanetData.ba2";
+    std::wstring wstrbiomArchiveFileName = directory.wstring();
+    if (!oArc.loadfile(wstrbiomArchiveFileName, strErr))
+        return false;
+
+    for (auto& ost : m_pndts)
+    {
+        if (ost.m_oPpbds.size()) // some planets don't have bioms because they are gas giants 
+        {
+            std::string strSrcPlanetName = std::string(reinterpret_cast<const char*>(&ost.m_pAnam->m_aname));
+            std::vector<char> outbuff;
+            const std::string strnestedpath = "planetdata/biomemaps/";
+            std::string strSrcPlanetNameWithPathAndExt = strnestedpath + strSrcPlanetName + ".biom";
+
+            if (!oArc.extract(strSrcPlanetNameWithPathAndExt, outbuff, strErr))
+                strErrs.push_back("Could not extract: " + strSrcPlanetNameWithPathAndExt);
+        }
+    }
+
+    if (strErrs.size())
+        return false;
+
+    return true;
+}
+
 bool CEsp::makebiomfile(const std::wstring &wstrSrcFilePath, const std::string &strSrcPlanetName, const std::string &strDstName, std::wstring &wstrNewFileName, std::string& strErr)
 {
 	// Find the arhive file which contains the biom needed use pSrc to help find it

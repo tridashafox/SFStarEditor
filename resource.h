@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by sscreater.rc
+// Used by sfed.rc
 //
 #define IDC_MYICON                      2
 #define SLIDER_RNG_MAX                  5
@@ -8,9 +8,9 @@
 #define IDS_APP_TITLE                   103
 #define IDD_ABOUTBOX                    103
 #define IDM_ABOUT                       104
-#define IDI_SFEDCR	                    107
+#define IDI_SFEDCR                      107
 #define IDI_SMALL                       108
-#define IDC_SFED	                    109
+#define IDC_SFED                        109
 #define IDR_MAINFRAME                   128
 #define IDD_DIALOG1                     129
 #define IDD_DIALOG0                     130
@@ -31,6 +31,8 @@
 #define IDC_EDIT_STNAMEFORM             1007
 #define IDC_EDIT_ZPOS                   1008
 #define IDC_CHECK2                      1010
+#define IDC_CHECK3                      1011
+#define IDC_CHECKUNLAND                 1011
 #define IDC_STATIC_P1                   1020
 #define IDC_STATIC_P2                   1021
 #define IDC_STATIC_P3                   1022
