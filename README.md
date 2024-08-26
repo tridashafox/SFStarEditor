@@ -13,7 +13,5 @@ To be be Licensed under: [CC BY-NC-SA 4.0](https://pages.github.com/](https://cr
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
   arising from the use of this software.
-
-  Includes zlib Version 1.3.1 code statically from www.zlib.net. See zlib\zlib.h for details of it's terms of use.
   
 If you want to contribute to this, let me know.
