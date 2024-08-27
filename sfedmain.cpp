@@ -558,6 +558,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
 
                 SetTimer(hWnd, ID_TIMER, TIMER_INTERVAL, NULL); // Set the timer for 30 seconds
+                OutputStr("Starfield star system creator. EXPERIMENTAL! Version 0.1");
 
                 if (IsDebuggerPresent()) // Shortcut while testing
                 {
