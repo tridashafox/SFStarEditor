@@ -221,6 +221,23 @@ size_t CEsp::dumpMissingBfceMapRecs(std::vector<std::string>&oOutputs)
                 break;
         }
     }
-
+    
     return m_BadMap.size();
+}
+
+
+void CEsp::dumpPlanetPositions(size_t iStarIdx, std::string& strOut)
+{
+    std::vector<BasicInfoRec> oBasc;
+    BasicInfoRec oBasicInfoNewPlanet;
+    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iStarIdx, oBasc, false, true);
+    std::sort(oBasc.begin(), oBasc.end(),
+        [](const CEsp::BasicInfoRec& a, const CEsp::BasicInfoRec& b) { return a.m_iPlanetPos < b.m_iPlanetPos; });
+    std::string strdmpout = "(";
+    for (size_t i = 0; i < oBasc.size(); ++i)
+        strdmpout += std::string(oBasc[i].m_pAName) + ": "
+        + std::to_string(oBasc[i].m_iPlanetPos)
+        + std::string((i + 1 < oBasc.size()) ? ", " : "");
+
+    strOut = strdmpout + ")";
 }

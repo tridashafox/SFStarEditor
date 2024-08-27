@@ -1305,7 +1305,10 @@ bool _dlgMakePlanet(HWND hDlg)
     size_t  iIdxPrimary = (size_t)SendMessage(hComboDestStar, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
 
     // get the planet positon
-    size_t iPlanetPosition = (size_t)SendMessage(GetDlgItem(hDlg, IDC_COMBOPLNNUM), CB_GETCURSEL, 0, 0);
+    HWND hComboPltPos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
+    size_t iPlanetPosition = (size_t)SendMessage(hComboPltPos, CB_GETCURSEL, 0, 0);
+    if (iPlanetPosition == (int)SendMessage(hComboPltPos, CB_GETCOUNT, 0, 0) - 1)
+        iPlanetPosition = LASTPLANETPOSITION;
 
     // TODO: allow path to be specified in the dialog
     // Make a biom file for the planet if required
@@ -1348,7 +1351,11 @@ bool _dlgMakePlanet(HWND hDlg)
         return false;
     }
 
-    std::string strMsg = "Planet " + strPlanetFormName + " was created in destination star system "
+    std::string strMsg;
+    pEspDst->dumpPlanetPositions(iIdxPrimary, strMsg);
+    OutputStr("Planet positions after creation: " + strMsg);
+
+    strMsg = "Planet " + strPlanetFormName + " was created in destination star system "
         + pEspDst->getAnam(CEsp::eESP_STDT, iIdxPrimary) + " at postion " + std::to_string(iPlanetPosition)
         + " with player level min/max " + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvl) + "-" + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvlMax)
         + " faction " + std::to_string(oDstBasicInfoNewPlanet.m_iFaction) + ".";

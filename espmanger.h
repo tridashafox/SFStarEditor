@@ -58,11 +58,13 @@ public:
 
 #define NO_ORBIT -1 
 #define NO_RECIDX -1
+#define NO_FORMID (0)
 #define NO_FPOS CEsp::fPos(std::numeric_limits<float>::min(), std::numeric_limits<float>::min(), std::numeric_limits<float>::min())
 #define MIN_PLAYERLEVEL (0)
 #define MAX_PLAYERLEVEL (255)
 #define NO_FACTION (0)
 #define NO_PLANETPOS (0)
+#define LASTPLANETPOSITION (254)
 #define GENBUFFSIZE (1024)
 #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
 #define ESP_FORMIDMASK (0x01FFFFFF) // mask to just affect the top byte of a form id
@@ -662,7 +664,6 @@ private:
     bool decompress_data(const char* compressed_data, size_t compressed_size, std::vector<char>& decompressed_data, size_t decompressed_size);
     ESPRECTYPE getRecType(const char* ptag);
     bool findFmIDMap(formid_t formid, GENrec& fndrec);
-    void mergeFmIDMaps(std::unordered_map<formid_t, GENrec>& targetMap, const std::unordered_map<formid_t, GENrec>& sourceMap);
     bool findKeyword(const LCTNrec& oRec, uint32_t iKeyword);
     bool findLocInfo(const STDTrec& oRecStar, size_t& iPlayerLvl, size_t& iPlayerLvlMax, size_t &iFaction);
     size_t findPrimaryIdx(size_t iIdx, fPos& oSystemPosition);
@@ -739,11 +740,10 @@ private:
     void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff);
     void _clonefixupcompsPndt(PNDTrec& oRec);
     bool createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
-    bool clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
+    formid_t clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
     
     // main modifications
     bool _saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr);
-
 
 public:
     // UX to CEsp data sharing
@@ -755,6 +755,8 @@ public:
     void dumptofile(const std::string& fileName);
     size_t dumpBadRecs(std::vector<std::string>& oOutputs);
     bool checkformissingbiom(const std::wstring& wstrSrcFilePath, std::vector<std::string>& strErrs);
+    void dumpPlanetPositions(size_t iStarIdx, std::string& strOut);
+
 
     // for star map
     float calcDist(const fPos& p1, const fPos& p2);

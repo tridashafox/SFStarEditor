@@ -630,22 +630,20 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
 {
     // TODO: moons...
 
-    // LOL most of the time this will make no changes, if the position has been entered correclty
-    // when edited in the planet dialog.
-
-    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+    std::vector<BasicInfoRec> oBasicInfoRecs;
     getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iPrimaryIdx, oBasicInfoRecs, false, true);
 
+    
     // Remove iNewPlanetIdx from the list so we don't include in the processing, we want to insert it into the correct place
     oBasicInfoRecs.erase(std::remove_if(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
-        [iNewPlanetIdx](const CEsp::BasicInfoRec& rec) { return rec.m_iPlanetPos == iNewPlanetIdx; }),  oBasicInfoRecs.end() );
+        [iNewPlanetIdx](const BasicInfoRec& rec) { return rec.m_iIdx==iNewPlanetIdx; }),  oBasicInfoRecs.end() );
 
     // Sort the planets by their current position
     std::sort(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
-        [](const CEsp::BasicInfoRec& a, const CEsp::BasicInfoRec& b) { return a.m_iPlanetPos < b.m_iPlanetPos; });
+        [](const BasicInfoRec& a, const BasicInfoRec& b) { return a.m_iPlanetPos < b.m_iPlanetPos; });
 
     // Reassign sequential positions to make sure no gaps 
-    // the dialog uses first, second, etc. to avoid using an actual postion value
+    // the dialog uses first, second, ... LASTPLANETPOSITION. to avoid using an actual postion value
     // this is so we can do the thing below to ensure the position values make sense
     for (size_t i = 0; i < oBasicInfoRecs.size(); ++i)
         oBasicInfoRecs[i].m_iPlanetPos = i;  // Assign positions 0, 1, 2, ...
@@ -656,16 +654,14 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
         iNewPos = oBasicInfoRecs.size();
     else
     {
-        // Insert the new planet
-        for (CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
-        {
+        // Insert the new planet by shifting ones at or after the specified position back
+        for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
             if (oBasicInfo.m_iPlanetPos >= iPlanetPos)
-                oBasicInfo.m_iPlanetPos += 1;  // Shift position
-        }
+                oBasicInfo.m_iPlanetPos += 1; 
     }
 
     // write the new positions back into the file buffer
-    for (CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+    for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
     {
         const PNDTGnamOv* pGnam = m_pndts[oBasicInfo.m_iIdx].m_pGnam;
         PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
@@ -684,7 +680,8 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
 
 #ifdef Never
     // example code for how to remove bioms
-    // Remove Bioms
+    // Remove Bioms - might be useful as a part method to make a planet unlandable from landable
+    // would also need to remove keywords/adjust keywords
     int i = 0; std::string strErr;
     while (oRec.m_oPpbds.size())
     {
@@ -698,7 +695,7 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
          _deleterec(oRec.m_decompdata, removestart, removeend);
         _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
         _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
-        // debug _saveToFile(oRec.m_decompdata, L"F:\\downloads\\cut" + std::to_wstring(i++) + L".bin", strErr);
+        // debug _saveToFile(oRec.m_decompdata, strDirectoryPath + std::to_wstring(i++) + L".bin", strErr);
     }
 #endif
 
@@ -735,11 +732,13 @@ void CEsp::_clonefixupcompsPndt(CEsp::PNDTrec& oRec)
 
 // Make a clone of the passed record in ostdRec, chnaging the clone with the info oBasicInfo
 // put the result in newbuff
-bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const BasicInfoRec &oBasicInfo)
+CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const BasicInfoRec &oBasicInfo)
 {
+    formid_t iformIdforNewPlanet = NO_FORMID;
+
     // TODO Clean up all the PTR stuff
     if (!m_buffer.size() || !*oBasicInfo.m_pName || opndtRec.m_isBad || !opndtRec.m_pEdid->m_name)
-        return false;
+        return NO_FORMID;
 
     // make newbuff the size of the STDT specified in the hdr and copy it over from the source
     // Note unlike GRUP records, the size of the record does not include the size of the STDT header 
@@ -754,7 +753,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
      _decompressPndt(oRec, newbuff);
     _rebuildPndtRecFromBuffer(oRec, newbuff);
     if (!oRec.m_pHdr)
-        return false; // should not happen bad hdr ptr
+        return NO_FORMID; // should not happen bad hdr ptr
 
     // Note for planets, pointers in oRec point into the decompressed buffer
 
@@ -763,13 +762,14 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
         PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr);
         pMutableHdr->m_formid = _createNewFormId();
         if (!pMutableHdr->m_formid)
-            return false; // id should not be zero, possible bad record
+            return NO_FORMID; // id should not be zero, possible bad record
+        iformIdforNewPlanet = pMutableHdr->m_formid;
     }
 
     // Do some validation because a change is better than a rest 
     if (oBasicInfo.m_iPrimaryIdx > m_stdts.size() || !m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId || 
         !m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam)
-        return false; // bad primary index
+        return NO_FORMID; // bad primary index
 
     // Put the planet in the star system of the star indx in PirmaryIdx
     {
@@ -780,7 +780,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     }
     
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
-        return false; // bad editor name
+        return NO_FORMID; // bad editor name
 
     // Do mods to the decompressed buffer which affect the size.
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pEdid->m_name, (uint16_t *)&oRec.m_pEdid->m_size, oBasicInfo.m_pName);
@@ -788,7 +788,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
    
     if (!oRec.m_pAnam || !oRec.m_pAnam->m_size || !oRec.m_pAnam->m_aname)
-        return false; // Bad full name
+        return NO_FORMID; // Bad full name
 
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pAnam->m_aname, (uint16_t *)&oRec.m_pAnam->m_size, oBasicInfo.m_pAName);
     _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
@@ -825,7 +825,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
     std::vector<char> newcompressbuffer;
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
-        return false;
+        return NO_FORMID;
 
     _insertbuff(newbuff, (char *)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
     oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr in case address of new buff moved
@@ -835,7 +835,7 @@ bool CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtRec, const 
     PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr); 
     pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
 
-    return true;
+    return iformIdforNewPlanet;
 }
 
 // Make a planet
@@ -843,6 +843,7 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
 {
     strErr.clear();
     std::vector<char> newPlanetbuff;
+    formid_t iformidForClone = NO_FORMID;
 
     if (!pSrc)
         MKFAIL("No source provided to create the planet from.");
@@ -854,7 +855,8 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
     // Create and save into m_buffer the new star
     try 
     {
-        if (!clonePndt(newPlanetbuff, pSrc->m_pndts[iSrcPlanetIdx], oBasicInfo)) // can throw if found nullptr
+        iformidForClone = clonePndt(newPlanetbuff, pSrc->m_pndts[iSrcPlanetIdx], oBasicInfo);
+        if (iformidForClone == NO_FORMID) // can throw if found nullptr
             MKFAIL("Could not clone selected planet.");
     } 
     catch (const std::runtime_error& e)
@@ -881,10 +883,6 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
     if (!createLocPlanet(newPlanetbuff, oBasicInfo, newLocbuff))
         MKFAIL("Could not create location record for new star.");
 
-    // Update planet postions in star system to accomidate new planet
-    // Note after this call positions valus might have changed invalidated any data in local vars
-    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oBasicInfo.m_iIdx, oBasicInfo.m_iPlanetPos); 
-    
     // Save the locaiton to the location group if it exists otherwise create a new group and add it to that
     if (!m_grupLctnPtrs.size())
     {
@@ -901,7 +899,11 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
     // Update planet postions in star system to accomidate new planet
     // Note after this call positions valus might have changed invalidated any data in local vars
     // Do this last since so we don't fail with later ops and have the data in an odd state.
-    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oBasicInfo.m_iIdx, oBasicInfo.m_iPlanetPos); 
+    GENrec oNewPlt;
+    if (!findFmIDMap(iformidForClone, oNewPlt))
+        MKFAIL("Could not find new planet after cloning.");
+
+    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oNewPlt.m_iIdx, oBasicInfo.m_iPlanetPos); 
    
     return true;
 }

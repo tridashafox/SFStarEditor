@@ -23,19 +23,12 @@ CEsp::ESPRECTYPE CEsp::getRecType(const char* ptag)
 bool CEsp::findFmIDMap(formid_t formid, GENrec& fndrec)
 {
     bool bFnd = false;
-    if (bFnd = m_FmIDMap.find(formid) != m_FmIDMap.end())
+    if (bFnd = (m_FmIDMap.find(formid) != m_FmIDMap.end()))
         fndrec = m_FmIDMap[formid];
 
     return bFnd;
 }
 
-void CEsp::mergeFmIDMaps(std::unordered_map<formid_t, GENrec>& targetMap, const std::unordered_map<formid_t, GENrec>& sourceMap) 
-{
-    for (const auto& [key, value] : sourceMap) 
-        targetMap[key] = value;  // Insert or update the key-value pair
-}
-
-    
 bool CEsp::findKeyword(const LCTNrec &oRec , uint32_t iKeyword)
 {
     for (size_t i = 0; i < oRec.m_pKsiz->m_count; ++i)
@@ -283,8 +276,6 @@ void CEsp::_dobuildsubrecs_mt(const std::vector<const CEsp::GRUPHdrOv *>& vgrps,
                                 oRec.m_compdatasize = oRec.m_pHdr->m_size - sizeof(oRec.m_pHdr->m_decompsize);
                                 oLocalpndts.push_back(oRec);
                                 oLocalFmIdMap[oRec.m_pHdr->m_formid] = GENrec(eType, m_pndts.size() - 1); // Add record to form id map
-
-               
                             }
                             searchPtr += BSKIP(oRec.m_pHdr);
                         }
@@ -315,17 +306,26 @@ void CEsp::_dobuildsubrecs_mt(const std::vector<const CEsp::GRUPHdrOv *>& vgrps,
         }
     }
 
-    // do merging local data to global at end to allow multi-thread to work effectively
+    // do form map build from local data to global at end to allow multi-thread to work effectively
     if (!oLocalstdts.empty() || !oLocalpndts.empty() || !oLocallctns.empty())
     {   
         std::lock_guard<std::mutex> guard(m_output_mutex);
 
-        if (eType == eESP_STDT) for (auto& oSTDTRec : oLocalstdts) m_stdts.push_back(oSTDTRec);
-        if (eType == eESP_PNDT) for (auto& oPNDTRec : oLocalpndts) m_pndts.push_back(oPNDTRec);
-        if (eType == eESP_LCTN) for (auto& oLCTNRec : oLocallctns) m_lctns.push_back(oLCTNRec);
-
-        if (!oLocalFmIdMap.empty())
-            mergeFmIDMaps(m_FmIDMap, oLocalFmIdMap);
+        if (eType == eESP_STDT) for (auto& oSTDTRec : oLocalstdts)
+        {
+            m_stdts.push_back(oSTDTRec);
+            m_FmIDMap[oSTDTRec.m_pHdr->m_formid] = GENrec(eType, m_stdts.size() - 1); 
+        }
+        if (eType == eESP_PNDT) for (auto& oPNDTRec : oLocalpndts)
+        {
+            m_pndts.push_back(oPNDTRec);
+            m_FmIDMap[oPNDTRec.m_pHdr->m_formid] = GENrec(eType, m_pndts.size() - 1); 
+        }
+        if (eType == eESP_LCTN) for (auto& oLCTNRec : oLocallctns)
+        {
+            m_lctns.push_back(oLCTNRec);
+            m_FmIDMap[oLCTNRec.m_pHdr->m_formid] = GENrec(eType, m_lctns.size() - 1);
+        }
     }
 }
 
