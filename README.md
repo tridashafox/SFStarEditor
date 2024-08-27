@@ -39,11 +39,10 @@ Use:
 9. Add other new planets to the star system as desired.
 10. Do any refinement to the ESP in the creation kit.
 
-Note you will need to include the .biom files extracted by step 5 for the new planet(s) in your final ESP. 
-If these are excluded then it will not be possible to land on the planet. 
-This tool also creates the required location records and sets the player level min and max as specified in step 5.
-    
-xEdit is useful to validate the ESP after changes.
+Notes:
+1. You will need to include the .biom files extracted by step 5 for the new planet(s) in your final ESP. If these are excluded then it will not be possible to land on the planet.
+2. The star contains the position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
+3. xEdit is useful to validate the ESP after changes.
 
 To be be Licensed under: [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/?ref=chooser-v1) for now.
 
