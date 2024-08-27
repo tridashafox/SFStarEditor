@@ -1492,6 +1492,9 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         case WM_INITDIALOG:
             if (pEspSrc && pEspDst)
             {
+
+                MessageBox(hDlg, L"Work in process - not functional", L"Error", MB_OK);
+
                 // Hide moons by default
                 CheckDlgButton(hDlg,  IDC_CHECKUNLAND, BST_CHECKED); 
 
@@ -1545,17 +1548,28 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 
                     HWND hCombo = GetDlgItem(hDlg, IDC_COMBO3);
                     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
-                    for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
-                    {
-                        if (*oBasicInfo.m_pAName) // leave out blank records (bad)
+                    std::vector<CEsp::BasicInfoRec>oHasMoons;
+                    for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+                        if (oBasicInfo.m_bIsMoon && *oBasicInfo.m_pAName) // leave out blank records (bad)
+                        {
+                            // find the moon's parent and added to the list
+                            CEsp::BasicInfoRec oParentPlanet;
+                            size_t iIdxMoonparent = pEspSrc->getMoonParentIdx(oBasicInfo.m_iIdx);
+                            pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iIdxMoonparent, oParentPlanet);
+                            oHasMoons.push_back(oParentPlanet);
+                        }
+
+                    bool bAddedPlanet = false;
+                    for (CEsp::BasicInfoRec &oBasicInfo : oHasMoons) // go through planets with moons and add them only once to the list
+                        if (!oBasicInfo.m_bRtFlag)
                         {
                             std::string str;
-                            str = std::string(oBasicInfo.m_pAName) + (oBasicInfo.m_bIsMoon ? " (moon)" : "");
+                            str = std::string(oBasicInfo.m_pAName);
                             LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
                             if (index != CB_ERR && index != CB_ERRSPACE)
                                 SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                            oBasicInfo.m_bRtFlag = bAddedPlanet = true;
                         }
-                    }
                 }
             }
             else
@@ -1575,14 +1589,14 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 {
                     LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
                     if (selectedIndex != CB_ERR)
-                        iIdx = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                        iPlanetIdx = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
                 }
 
                 if (iIdx != CB_ERR)
                 {
                     std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
                     bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
-                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_PNDT, iIdx, oBasicInfoRecs, true, IncludeUnlandable);
+                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, true, IncludeUnlandable);
 
                     HWND hCombo = GetDlgItem(hDlg, IDC_COMBO5);
                     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);

@@ -115,9 +115,10 @@ public:
             const size_t iSysPlayerLvl, const size_t iSysPlayerLvlMax, const size_t iFaction) :
             m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_bIsLandable(bLandable), m_StarMapPostion(oPos),
             m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPos(iPlanetPos), m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
-            m_iFaction(iFaction) {}
+            m_iFaction(iFaction) { m_bRtFlag = false; }
         void clear()
         {
+            m_bRtFlag = false;
             m_pName = m_pAName = SZBADRECORD;
             m_bIsMoon = false;
             m_bIsLandable = true;
@@ -130,7 +131,7 @@ public:
             m_iSysPlayerLvlMax = 0;
             m_iFaction = 0;
         }
-
+        bool m_bRtFlag;        // temp flag for easier data processing
         const char* m_pName;   // Form name
         const char* m_pAName;  // Presentation name
         bool m_bIsMoon;        // If the object is a moon
@@ -760,6 +761,7 @@ public:
 
     // for star map
     float calcDist(const fPos& p1, const fPos& p2);
+    size_t getMoonParentIdx(size_t iPlanetId);
     void getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);
     float findClosestDist(const size_t iSelfIdx, const fPos &targetPos, const std::vector<BasicInfoRec>& oBasicInfoRecs, size_t& idx);
     float getMinDistance(float fMinDistance = std::numeric_limits<float>::max());

@@ -628,7 +628,8 @@ void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newp
 // adjust planet positions so they are in sequence and adjust input iPlanetPos
 bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos)
 {
-    // TODO: moons...
+    // TODO: moons... Changing any plant positions will mean Moons need to be fixed up as 
+    // m_primePndtId is from 1 to n, and is the position of the planet where the moon is
 
     std::vector<BasicInfoRec> oBasicInfoRecs;
     getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iPrimaryIdx, oBasicInfoRecs, false, true);
@@ -657,7 +658,12 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
         // Insert the new planet by shifting ones at or after the specified position back
         for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
             if (oBasicInfo.m_iPlanetPos >= iPlanetPos)
-                oBasicInfo.m_iPlanetPos += 1; 
+            {
+                // TODO:
+                // get the moons for the planet whose position we are changing
+                // update their m_primePndtId to the new one set below
+                oBasicInfo.m_iPlanetPos += 1;
+            }
     }
 
     // write the new positions back into the file buffer

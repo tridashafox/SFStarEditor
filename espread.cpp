@@ -68,7 +68,6 @@ bool CEsp::findLocInfo(const STDTrec &oRecStar, size_t &iPlayerLvl, size_t &iPla
 }
 
 // Given index to a planet, finds what is orbiting
-// TODO: make it work for moons
 size_t CEsp::findPrimaryIdx(size_t iIdx, fPos& oSystemPosition)
 {
     oSystemPosition.clear();
@@ -89,6 +88,15 @@ size_t CEsp::findPrimaryIdx(size_t iIdx, fPos& oSystemPosition)
     }
     return NO_ORBIT;
 }
+
+// find a planet idx given  the gnam PndId
+// TODO: use a map
+size_t CEsp::getMoonParentIdx(size_t iPlanetId)
+{
+    // TODO from a moon find it's parent planet
+    return NO_ORBIT;
+}
+
 
 // Given index to a star, find sthe orbiting planets
 // returning these in a vector of idxs of the planets and returns the number found
