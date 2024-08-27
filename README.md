@@ -32,7 +32,7 @@ Use:
 2. Select a source - open ESM and select the starfield.esm file.
 3. Select a destination - open a ESP being worked (make a copy!)
 4. Create a star based on an existing star in the source
-5. Create a planet for the star (a star must have at l****east one planet to work in game)
+5. Create a planet for the star (a star must have at least one planet to work in game)
 6. Save, check ESP in game
 7. add other new planets to the star.
 8. Do any refinement in creation kit
