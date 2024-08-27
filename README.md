@@ -11,7 +11,7 @@ In reality, zlib1.dll is flying around all over the place with many apps includi
 You can just get a copy of it from the NifSkope directory if you have that installed. Don't go to some random website to get a version of it!
 
 Features:
-1. Allows creation of a star and planet based on an existing star or planet
+1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets to be added
 3. Creates the require locations to ensure navigation is posisble in game
 4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
