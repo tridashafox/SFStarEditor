@@ -12,7 +12,7 @@ You can just get a copy of it from the NifSkope directory if you have that insta
 
 Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
-2. Allows for additional planets to be added
+2. Allows for additional planets to created in the star system
 3. Creates the require locations to ensure navigation is posisble in game
 4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
 5. Allows ESM or ESP to be source of the data to be cloned from
