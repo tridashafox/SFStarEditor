@@ -25,6 +25,7 @@ Features:
 Limitations:
 1. Does not support moons at the moment
 2. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
+3. All stars and planets are clones of an existing planet
 
 Use: 
 1. Start the app.
