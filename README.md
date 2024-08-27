@@ -32,11 +32,12 @@ Use:
 2. File -> Select source master file (ESM) - open ESM and select the starfield.esm file.
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
 4. Star ->Create star - based on an existing star in the source
-5. Planet -> Create planet - create a planet for the star from an existing planet on the source. A star must have at least one planet to work in game.
-6. File -> Save to destination - will save to the loaded destination file. 
-7. Check the ESP works in game.
-8. Add other new planets to the star system as desired.
-9. Do any refinement to the ESP in the creation kit.
+5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
+   Note: A star system must have at least one planet to work in game.
+7. File -> Save to destination - will save to the loaded destination file. 
+8. Check the ESP works in game.
+9. Add other new planets to the star system as desired.
+10. Do any refinement to the ESP in the creation kit.
     
 Note that the xEdit is useful to validate the ESP after changes.
 
