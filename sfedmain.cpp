@@ -279,7 +279,7 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     if (pEsp)
     {
         delete pEsp;
-        pEsp = new CEsp();
+        pEsp = nullptr;
     }
 
     std::wstring fn = wszfn;
@@ -287,7 +287,8 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     std::string strErr;
     LARGE_INTEGER liStart = GetStartTime();
     OutputStr(std::string("Loading ") + wstrtostr(fn) + std::string("..."));
-    // Short cut if using debugger
+
+
     pEsp = new CEsp;
     if (!pEsp->load(fn, strErr))
     {
@@ -296,6 +297,7 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
         pEsp = nullptr;
         return false;
     }
+
     OutputStr(std::string("Finished in ") + GetTimeSince(liStart) + ".");
 
     std::string strNumST = std::to_string(pEsp->getNum(CEsp::eESP_STDT));
