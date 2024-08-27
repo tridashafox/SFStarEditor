@@ -16,6 +16,7 @@
 #define IDD_DIALOG0                     130
 #define IDD_DIALOG2                     131
 #define IDD_DIALOG_SM                   132
+#define IDD_DIALOGMOON                  133
 #define IDB_SELESP                      201
 #define IDC_COMBO1                      1000
 #define IDC_COMBO2                      1001
@@ -27,11 +28,11 @@
 #define IDC_EDIT_PNNAME2                1005
 #define IDC_COMBOPLNNUM                 1005
 #define IDC_EDIT_YPOS                   1006
+#define IDC_COMBO5                      1006
 #define IDC_EDIT_PNNAME3                1007
 #define IDC_EDIT_STNAMEFORM             1007
 #define IDC_EDIT_ZPOS                   1008
 #define IDC_CHECK2                      1010
-#define IDC_CHECK3                      1011
 #define IDC_CHECKUNLAND                 1011
 #define IDC_STATIC_P1                   1020
 #define IDC_STATIC_P2                   1021
@@ -62,6 +63,8 @@
 #define ID_FILE_SAVE                    32778
 #define ID_FILE_SAVEDESTINATIONAS       32779
 #define ID_FILE_SAVEAS                  32780
+#define ID_PLANET_CREATEMOON            32781
+#define ID_FILE_EDITSTAR                32782
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -70,7 +73,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         32781
+#define _APS_NEXT_COMMAND_VALUE         32783
 #define _APS_NEXT_CONTROL_VALUE         1036
 #define _APS_NEXT_SYMED_VALUE           140
 #endif

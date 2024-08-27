@@ -447,35 +447,36 @@ void CEsp::getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, st
     oBasicInfos.clear();
     oBasicInfos.shrink_to_fit();
 
-    switch (eType) {
-    case eESP_STDT:
+    switch (eType) 
     {
-        // Find planets given a primary star, get star system id from star
-        formid_t iSystemId = m_stdts[iPrimary].m_pDnam->m_systemId;
-        auto it = m_SystemIDMap.find(iSystemId);
-        if (it != m_SystemIDMap.end())
+        case eESP_STDT:
         {
-            std::vector<GENrec>& genRecords = it->second;
-            for (const GENrec& oRec : genRecords)
+            // Find planets given a primary star, get star system id from star
+            formid_t iSystemId = m_stdts[iPrimary].m_pDnam->m_systemId;
+            auto it = m_SystemIDMap.find(iSystemId);
+            if (it != m_SystemIDMap.end())
             {
-                if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
+                std::vector<GENrec>& genRecords = it->second;
+                for (const GENrec& oRec : genRecords)
                 {
-                    bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_primePndtId != 0;
-                    bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
-                    if ((bIncludeMoons || !bIsMoon) &&
-                        (bIncludeUnlandable || bIsLandable))
+                    if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
                     {
-                        BasicInfoRec oBasicInfoPlanet =_makeBasicPlanetRec(oRec.m_iIdx);
-                        oBasicInfos.push_back(oBasicInfoPlanet);
+                        bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_primePndtId != 0;
+                        bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
+                        if ((bIncludeMoons || !bIsMoon) &&
+                            (bIncludeUnlandable || bIsLandable))
+                        {
+                            BasicInfoRec oBasicInfoPlanet =_makeBasicPlanetRec(oRec.m_iIdx);
+                            oBasicInfos.push_back(oBasicInfoPlanet);
+                        }
                     }
                 }
             }
         }
-    }
-    break;
+        break;
 
-    case eESP_PNDT:
-        // TODO:
+        case eESP_PNDT:
+            // TODO: maybe
         break;
     }
 }

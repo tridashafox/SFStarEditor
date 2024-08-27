@@ -41,6 +41,7 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreateStarDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreatePlanetDlg(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK CreateMoonDlg(HWND, UINT, WPARAM, LPARAM);
 void OutputStr(const std::string& strOut);
 void OutputStr(const WCHAR* pwchar);
 
@@ -673,6 +674,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                         break;
                     case IDM_FILE_CREATE_STAR: [[fallthrough]]; 
+                    case ID_PLANET_CREATEMOON: [[fallthrough]]; 
                     case IDM_FILE_CREATE_PLANET:
                         if (!pEspSrc || !pEspSrc->getNum(CEsp::eESP_STDT) || !pEspSrc->getNum(CEsp::eESP_PNDT))
                             MessageBox(hWnd, L"An ESP or ESM must be selected as the 'Source' which contains at least one star and one planet.", L"Error", MB_OK | MB_ICONERROR);
@@ -680,8 +682,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         if (!pEspDst)
                             MessageBox(hWnd, L"An ESP must be selected as the 'Destination' to save.", L"Error", MB_OK | MB_ICONERROR);
                         else
-                            DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(wmId==IDM_FILE_CREATE_STAR ? IDD_DIALOG0 : IDD_DIALOG1), 
-                                hWnd, wmId==IDM_FILE_CREATE_STAR ? CreateStarDlg : CreatePlanetDlg);
+                        {
+                            if (wmId ==ID_PLANET_CREATEMOON)
+                                DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_DIALOGMOON),
+                                    hWnd, CreateMoonDlg);
+                            else
+                                DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(wmId == IDM_FILE_CREATE_STAR ? IDD_DIALOG0 : IDD_DIALOG1),
+                                    hWnd, wmId == IDM_FILE_CREATE_STAR ? CreateStarDlg : CreatePlanetDlg);
+                        }
+                        break;
+
+                    case ID_FILE_EDITPLANET:
+                    case ID_FILE_EDITSTAR:
+                        MessageBox(hWnd, L"Not implemented.", L"Error", MB_OK);
                         break;
 
                     case IDM_EXIT:
@@ -1469,6 +1482,151 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     }
     return (INT_PTR)FALSE;
 }
+
+
+
+INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+        case WM_INITDIALOG:
+            if (pEspSrc && pEspDst)
+            {
+                // Hide moons by default
+                CheckDlgButton(hDlg,  IDC_CHECKUNLAND, BST_CHECKED); 
+
+                // Populate Combo with src stars
+                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs, true);
+                HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
+                for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                {
+                    LRESULT index = SendMessageA(hCombo2, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
+                    if (index != CB_ERR && index != CB_ERRSPACE)
+                        SendMessage(hCombo2, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                }
+
+                // Populate Combo with dst stars
+                pEspDst->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs, true);
+                HWND hCombo4 = GetDlgItem(hDlg, IDC_COMBO4);
+                for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                {
+                    LRESULT index = SendMessageA(hCombo4, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
+                    if (index != CB_ERR && index != CB_ERRSPACE)
+                        SendMessage(hCombo4, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                }
+                // set up the position selection
+                HWND hComboPpos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
+                std::vector<std::string> strords = { "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "last" };
+                for (const auto& word : strords)
+                   SendMessageA(hComboPpos, CB_ADDSTRING, 0, (LPARAM)word.c_str());
+                SendMessage(hComboPpos, CB_SETCURSEL, 0, 0); 
+            }
+            return (INT_PTR)TRUE;
+
+        case WM_COMMAND:
+            if (HIWORD(wParam) == EN_CHANGE && LOWORD(wParam) == IDC_EDIT_PNNAME)
+                UpdateFormNameInDlg(hDlg, IDC_EDIT_PNNAME, IDC_EDIT_PNNAMEFORM, false);
+            else
+            if (pEspSrc && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO2) // star change
+            {
+                // Get the selected item index
+                CEsp::formid_t iIdx = CB_ERR;
+                LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+                if (selectedIndex != CB_ERR)
+                    iIdx = (CEsp::formid_t) SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+                if (iIdx != CB_ERR)
+                {
+                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                    bool IncludeMoons = false;
+                    bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
+                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, IncludeMoons, true);
+
+                    HWND hCombo = GetDlgItem(hDlg, IDC_COMBO3);
+                    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+                    for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                    {
+                        if (*oBasicInfo.m_pAName) // leave out blank records (bad)
+                        {
+                            std::string str;
+                            str = std::string(oBasicInfo.m_pAName) + (oBasicInfo.m_bIsMoon ? " (moon)" : "");
+                            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
+                            if (index != CB_ERR && index != CB_ERRSPACE)
+                                SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                        }
+                    }
+                }
+            }
+            else
+            if (pEspSrc && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO3 ) // planet change
+            {
+                 // Get the selected star
+                size_t iIdx = CB_ERR;
+                {
+                    HWND hStarCombo = GetDlgItem(hDlg, IDC_COMBO2);
+                    LRESULT selectedIndex = SendMessage(hStarCombo, CB_GETCURSEL, 0, 0);
+                    if (selectedIndex != CB_ERR)
+                        iIdx = (size_t)SendMessage(hStarCombo, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                }
+
+                // Get the selected planet
+                size_t iPlanetIdx = CB_ERR;
+                {
+                    LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+                    if (selectedIndex != CB_ERR)
+                        iIdx = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                }
+
+                if (iIdx != CB_ERR)
+                {
+                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                    bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
+                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_PNDT, iIdx, oBasicInfoRecs, true, IncludeUnlandable);
+
+                    HWND hCombo = GetDlgItem(hDlg, IDC_COMBO5);
+                    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+                    for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                    {
+                        if (*oBasicInfo.m_pAName && oBasicInfo.m_bIsMoon && oBasicInfo.m_iPrimaryIdx == iPlanetIdx) // leave out blank records (bad)
+                        {
+                            std::string str;
+                            str = std::string(oBasicInfo.m_pAName);
+                            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
+                            if (index != CB_ERR && index != CB_ERRSPACE)
+                                SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                        }
+                    }
+                }
+            }
+            else
+            if ((LOWORD(wParam) == IDC_CHECK2 || LOWORD(wParam) == IDC_CHECKUNLAND) && HIWORD(wParam) == BN_CLICKED)
+            {
+                SendMessageA(hDlg, WM_COMMAND, MAKEWPARAM(IDC_COMBO2, CBN_SELCHANGE), (LPARAM)GetDlgItem(hDlg, IDC_COMBO2));
+            }
+            else
+            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+            {
+                if (LOWORD(wParam) == IDOK)
+                {
+                    // TODO make moon
+                    // 
+                    // Force an update since data might have changed as a result of the create process...
+                    // TODO: needed? not sure things that mod data, happen late on and likely too late to get here.
+                    break;
+                }
+                EndDialog(hDlg, LOWORD(wParam));
+                return (INT_PTR)TRUE;
+            }
+            break;
+
+        case WM_CLOSE:
+            EndDialog(hDlg, IDCANCEL);
+            return (INT_PTR)TRUE;
+    }
+    return (INT_PTR)FALSE;
+}
+
 
 // TODO: test planet positon setting works
 // TODO: show selected star/planet info in dialogs, save and save as show name
