@@ -1,7 +1,7 @@
 Original creation by tridasha.
 
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP pluging file.
-C++ visual studio 2022 project. 
+C++ Visual Studio 2022 project. 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if are compiling the source. 
 I say this like it would simply work but first you need visual studio installed, then you need vcpkg installed, and built, 
