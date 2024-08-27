@@ -38,7 +38,7 @@ Use:
 8. Do any refinement in creation kit
 9. Validate data in ESP using xEdit for starfield.
 
-To be be Licensed under: [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/?ref=chooser-v1).
+To be be Licensed under: [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/?ref=chooser-v1) for now.
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the author be held liable for any damages
