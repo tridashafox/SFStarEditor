@@ -442,8 +442,7 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
 
 // Get all the basic info records for the planets oribiting the passed Primary
 // TODO: support passing a planet as a primary
-void CEsp::getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, CEsp::formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, 
-    bool bIncludeMoons, bool bIncludeUnlandable)
+void CEsp::getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable)
 {
     oBasicInfos.clear();
     oBasicInfos.shrink_to_fit();

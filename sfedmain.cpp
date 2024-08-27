@@ -19,7 +19,6 @@
 #include <iomanip>
 #include <sstream>
 #include <commctrl.h>  
-#include <zlib.h> 
 #include <limits> 
 #include <thread>
 #include <mutex>
@@ -1444,7 +1443,11 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
             if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
             {
                 if (LOWORD(wParam) == IDOK && !_dlgMakePlanet(hDlg))
+                {
+                    // Force an update since data might have changed as a result of the create process...
+                    // TODO: needed? not sure things that mod data, happen late on and likely too late to get here.
                     break;
+                }
                 EndDialog(hDlg, LOWORD(wParam));
                 return (INT_PTR)TRUE;
             }
@@ -1457,10 +1460,10 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     return (INT_PTR)FALSE;
 }
 
-// TODO: test biom works - solve that gas giants don't have biom files
-// TODO: support planet save - planet positions, clean up saving dlgs etc, surfacemap? Holunini data fix ups?
-// TODO: better map - let positon be selected on map?
+// TODO: test planet positon setting works
 // TODO: show selected star/planet info in dialogs, save and save as show name
+// TODO: clean up saving (make sure it works)
+// TODO: better map - let positon be selected on map?
 // TODO: support moons
 // TODO: ?when creating a star extend the dialog so it also has the creating planet part as a star must have at least one planet, or change to a wizard with steps
 // TODO: extend dialog to allow for more editing of other records of data

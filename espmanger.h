@@ -1,6 +1,12 @@
 // espmanger.h: processing of ESM and ESP files
 //
+// 
+// #define STATIC_ZLIB
+
 #define NOMINMAX
+#ifdef STATIC_ZLIB
+#define ZLIB_H
+#endif
 #include "framework.h"
 #include "sfed.h"
 #include "resource.h"
@@ -19,15 +25,22 @@
 #include <iomanip>
 #include <sstream>
 #include <commctrl.h>  
-#include <zlib.h> 
 #include <limits> 
 #include <thread>
 #include <mutex>
 #include <future>
 #include <algorithm>
 #include <unordered_set>
+#include <unordered_map>
 #include <cmath>
 #include <chrono>
+#ifdef STATIC_ZLIB
+#include "zlib\zlib.h"
+#endif
+#ifndef STATIC_ZLIB
+#include <zlib.h>
+#endif
+
 
 #pragma comment(lib, "Shcore.lib")
 extern const char* SZBADRECORD;
@@ -406,9 +419,9 @@ private:
         PNDTGnamOv() { memset(this, 0, sizeof(*this)); }
         uint8_t m_GNAMtag[4];
         uint16_t m_size;
-        formid_t m_systemId;
-        uint32_t m_primePndtId;
-        uint32_t m_pndtId;
+        formid_t m_systemId; // a unique id tied to the location which defines the star system
+        uint32_t m_primePndtId; // the form id of the primary planet
+        uint32_t m_pndtId; // the sequence positon of the planet in the star system e.g. 3rd rock from the sun
     };
     const PNDTGnamOv BADPNDTGNAMREC = PNDTGnamOv();
 
@@ -720,7 +733,7 @@ private:
     bool cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const BasicInfoRec &oBasicInfo);
 
     // Planet
-    size_t _adjustPlanetPositions(const STDTrec& ostdtRec, size_t iPlanetPos);
+    bool _adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos);
     void _decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff);
     bool _refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize);
     void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff);
@@ -745,7 +758,7 @@ public:
 
     // for star map
     float calcDist(const fPos& p1, const fPos& p2);
-    void getBasicInfoRecsOrbitingPrimary(CEsp::ESPRECTYPE eType, formid_t iPrimary, std::vector<CEsp::BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);
+    void getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);
     float findClosestDist(const size_t iSelfIdx, const fPos &targetPos, const std::vector<BasicInfoRec>& oBasicInfoRecs, size_t& idx);
     float getMinDistance(float fMinDistance = std::numeric_limits<float>::max());
     bool checkMinDistance(const fPos& ofPos, float fMinDistance, std::string &strErr);
