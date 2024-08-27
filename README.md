@@ -12,7 +12,7 @@ You can just get a copy of it from the NifSkope directory if you have that insta
 
 Limitations:
 1. Creates a new star and planet by duplicating an existing star or planet with some changes (name and position)
-2. Does not allow more than one planet to be added currently (working on this)
+2. Does not support moons at the moment
 3. Only very limited changes to the star or planet
 
 To be be Licensed under: [CC BY-NC-SA 4.0](https://pages.github.com/](https://creativecommons.org/licenses/by-nc-sa/4.0/)).
