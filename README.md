@@ -29,7 +29,7 @@ Limitations:
 
 Use: 
 1. Start the app.
-2. File -> Select source master file (ESM) - open ESM and select the starfield.esm file.
+2. File -> Select source master file (ESM) - Select the starfield.esm file.
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
 4. Star ->Create star - based on an existing star in the source
 5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
