@@ -1,6 +1,6 @@
 Original creation by tridasha.
 
-Windows GUI tool that lets you create a new star system with a planet in an existing Starfield ESP pluging file.
+Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP pluging file.
 C++ visual studio 2022 project. 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if are compiling the source. 
