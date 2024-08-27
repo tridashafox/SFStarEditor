@@ -11,8 +11,8 @@ In reality, zlib1.dll is flying around all over the place with many apps includi
 You can just get a copy of it from the NifSkope directory if you have that installed. Don't go to some random website to get a version of it!
 
 Features:
-1. Allows creation of a star and planet based on an existing star or planet
-2. Allows for additional planets to be added
+1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
+2. Allows for additional planets to created in the star system
 3. Creates the require locations to ensure navigation is posisble in game
 4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
 5. Allows ESM or ESP to be source of the data to be cloned from
@@ -25,13 +25,14 @@ Features:
 Limitations:
 1. Does not support moons at the moment
 2. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
+3. All stars and planets are clones of an existing planet
 
 Use: 
 1. Start the app.
 2. Select a source - open ESM and select the starfield.esm file.
 3. Select a destination - open a ESP being worked (make a copy!)
 4. Create a star based on an existing star in the source
-5. Create a planet for the star (a star must have at l****east one planet to work in game)
+5. Create a planet for the star (a star must have at least one planet to work in game)
 6. Save, check ESP in game
 7. add other new planets to the star.
 8. Do any refinement in creation kit
@@ -40,7 +41,7 @@ Use:
 To be be Licensed under: [CC BY-NC-SA 4.0](https://pages.github.com/](https://creativecommons.org/licenses/by-nc-sa/4.0/)).
 
   This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
+  warranty.  In no event will the author be held liable for any damages
   arising from the use of this software.
 
 If you want to contribute to this, let me know.
