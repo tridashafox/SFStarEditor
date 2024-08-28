@@ -484,7 +484,7 @@ bool CEsp::makestar(const CEsp *pSrc, size_t iSrcStarIdx, const BasicInfoRec &oB
         MKFAIL("No source provided to create the star from.");
 
     // Check values make sense, since we will be casting these down to uint8
-    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPos >0xFF)
+    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPlacement >0xFF)
         MKFAIL("Could not create star as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
@@ -580,19 +580,19 @@ bool CEsp::createLocPlanet(const std::vector<char>& newPlanetbuff, const BasicIn
     formid_t planetLocId = 0;
     if (!(planetLocId = _createLoc(newLocbuff, strLocName.c_str(), strPlanetName.c_str(), StarLocId, systemId,
         &keywordsPlanet[0], sizeof(keywordsPlanet) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos)))
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement)))
         return false;
 
     // Create orbit reference
     if (!_createLoc(newLocbuff, std::string(strLocName + "_Orbit").c_str(), strPlanetName.c_str(), planetLocId, systemId,
         &keywordsOrbit[0], sizeof(keywordsOrbit) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos))
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement))
         return false;
 
     // Create surface reference
     if (!_createLoc(newLocbuff, std::string(strLocName + "_Surface").c_str(), strPlanetName.c_str(), planetLocId, systemId,
         &keywordsSurface[0], sizeof(keywordsSurface) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPos))
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement))
         return false;
 
     return true;
@@ -629,56 +629,64 @@ void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newp
 bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos)
 {
     // TODO: moons... Changing any plant positions will mean Moons need to be fixed up as 
-    // m_primePndtId is from 1 to n, and is the position of the planet where the moon is
+    // m_parentPndtplacement is from 1 to n, and is the position of the planet where the moon is
 
     std::vector<BasicInfoRec> oBasicInfoRecs;
-    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iPrimaryIdx, oBasicInfoRecs, false, true);
-
-    
+    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iPrimaryIdx, oBasicInfoRecs, true, true);
+        
     // Remove iNewPlanetIdx from the list so we don't include in the processing, we want to insert it into the correct place
     oBasicInfoRecs.erase(std::remove_if(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
         [iNewPlanetIdx](const BasicInfoRec& rec) { return rec.m_iIdx==iNewPlanetIdx; }),  oBasicInfoRecs.end() );
-
-    // Sort the planets by their current position
+    
+    // sort by placement, but put moons at the end of the list
     std::sort(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
-        [](const BasicInfoRec& a, const BasicInfoRec& b) { return a.m_iPlanetPos < b.m_iPlanetPos; });
+        [](const BasicInfoRec& a, const BasicInfoRec& b) {
+            // If one is a moon and the other is not, the non-moon should come first
+            if (a.m_bIsMoon != b.m_bIsMoon) {
+                return !a.m_bIsMoon;
+            }
+            // If both are either moons or non-moons, sort by planet placement
+            return a.m_iPlanetPlacement < b.m_iPlanetPlacement;
+        });
 
     // Reassign sequential positions to make sure no gaps 
-    // the dialog uses first, second, ... LASTPLANETPOSITION. to avoid using an actual postion value
-    // this is so we can do the thing below to ensure the position values make sense
+    size_t idxStartofMoons = NO_ORBIT;
     for (size_t i = 0; i < oBasicInfoRecs.size(); ++i)
-        oBasicInfoRecs[i].m_iPlanetPos = i;  // Assign positions 0, 1, 2, ...
-
-    // if the new position is larger than the last, just make it the last
-    size_t iNewPos = iPlanetPos;
-    if (iPlanetPos >= oBasicInfoRecs.size())
-        iNewPos = oBasicInfoRecs.size();
-    else
     {
-        // Insert the new planet by shifting ones at or after the specified position back
-        for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
-            if (oBasicInfo.m_iPlanetPos >= iPlanetPos)
-            {
-                // TODO:
-                // get the moons for the planet whose position we are changing
-                // update their m_primePndtId to the new one set below
-                oBasicInfo.m_iPlanetPos += 1;
-            }
+        if (idxStartofMoons == NO_ORBIT && oBasicInfoRecs[i].m_bIsMoon)
+            idxStartofMoons = i;
+
+        oBasicInfoRecs[i].m_iPlanetPlacement = i + 1;  // Assign positions 1, 2, ...
     }
+
+    // if the new position is larger than the last, just make it the last non moon
+    size_t iNewPos = iPlanetPos;
+    if (iPlanetPos > oBasicInfoRecs.size())
+    {
+        if (idxStartofMoons == NO_ORBIT)
+            iNewPos = oBasicInfoRecs.size()+1; // no moons set placement to next
+        else
+            iNewPos = oBasicInfoRecs[idxStartofMoons].m_iPlanetPlacement; // insert new (n) at where the moons start e.g at 3m if 1p,2p,3m,4m - 1p,2p,3n,4m,5m
+    }
+
+    // Insert the new planet by shifting ones at or after the specified position back
+    for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+        if (oBasicInfo.m_iPlanetPlacement >= iNewPos)
+            oBasicInfo.m_iPlanetPlacement += 1;
 
     // write the new positions back into the file buffer
     for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
     {
         const PNDTGnamOv* pGnam = m_pndts[oBasicInfo.m_iIdx].m_pGnam;
         PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-        pMutableGnam->m_pndtId = static_cast<uint32_t>(oBasicInfo.m_iPlanetPos);
+        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
     }
 
     if (iNewPos!=iPlanetPos)
     {
         const PNDTGnamOv* pGnam = m_pndts[iNewPlanetIdx].m_pGnam;
         PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-        pMutableGnam->m_pndtId = static_cast<uint32_t>(iNewPos);
+        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(iNewPos);
     }
 
     return true;
@@ -781,8 +789,8 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     {
         PNDTGnamOv* pMutableGnam = makeMutable(oRec.m_pGnam);
         pMutableGnam->m_systemId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId;
-        pMutableGnam->m_primePndtId = static_cast<uint32_t>(oBasicInfo.m_iPrimaryIdx); // zero unless it's a moon
-        pMutableGnam->m_pndtId = static_cast<uint32_t>(oBasicInfo.m_iPlanetPos);
+        pMutableGnam->m_parentPndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPrimaryIdx); // zero unless it's a moon
+        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
     }
     
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
@@ -845,24 +853,24 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
 }
 
 // Make a planet
-bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, std::string& strErr)
+bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec& oBasicInfo, formid_t &FormIdforNewPlanet, std::string& strErr)
 {
     strErr.clear();
     std::vector<char> newPlanetbuff;
-    formid_t iformidForClone = NO_FORMID;
+    FormIdforNewPlanet = NO_FORMID;
 
     if (!pSrc)
         MKFAIL("No source provided to create the planet from.");
 
     // Check values make sense, since we will be casting these down to uint8
-    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPos >0xFF)
+    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPlacement >0xFF)
         MKFAIL("Could not create planet as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
     try 
     {
-        iformidForClone = clonePndt(newPlanetbuff, pSrc->m_pndts[iSrcPlanetIdx], oBasicInfo);
-        if (iformidForClone == NO_FORMID) // can throw if found nullptr
+        FormIdforNewPlanet = clonePndt(newPlanetbuff, pSrc->m_pndts[iSrcPlanetIdx], oBasicInfo);
+        if (FormIdforNewPlanet == NO_FORMID) // can throw if found nullptr
             MKFAIL("Could not clone selected planet.");
     } 
     catch (const std::runtime_error& e)
@@ -906,10 +914,10 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
     // Note after this call positions valus might have changed invalidated any data in local vars
     // Do this last since so we don't fail with later ops and have the data in an odd state.
     GENrec oNewPlt;
-    if (!findFmIDMap(iformidForClone, oNewPlt))
+    if (!findFmIDMap(FormIdforNewPlanet, oNewPlt))
         MKFAIL("Could not find new planet after cloning.");
 
-    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oNewPlt.m_iIdx, oBasicInfo.m_iPlanetPos); 
+    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oNewPlt.m_iIdx, oBasicInfo.m_iPlanetPlacement); 
    
     return true;
 }

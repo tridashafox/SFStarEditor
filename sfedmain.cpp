@@ -1284,6 +1284,31 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return (INT_PTR)FALSE;
 }
 
+bool _outputnewplanet(CEsp::formid_t NewformId)
+{
+    if (!pEspDst)
+        return false; // bad
+
+    CEsp::BasicInfoRec oNew;
+    if (!pEspDst->getBasicInfo(CEsp::eESP_PNDT, NewformId, oNew))
+    {
+        OutputStr("Error: Invalid formid.");
+        return false;
+    }
+
+    // display star system planet position info after creation
+    std::string strMsg;
+    pEspDst->dumpPlanetPositions(oNew.m_iPrimaryIdx, strMsg);
+    OutputStr("Planet positions after creation: " + strMsg);
+
+    // display new planet details
+    strMsg = "Planet " + std::string(oNew.m_pName) + " was created in destination star system "
+        + pEspDst->getAnam(CEsp::eESP_STDT, oNew.m_iPrimaryIdx) + " at placement " + std::to_string(oNew.m_iPlanetPlacement) +
+        +" with player level min/max " + std::to_string(oNew.m_iSysPlayerLvl) + "-" + std::to_string(oNew.m_iSysPlayerLvlMax)
+        + " faction " + std::to_string(oNew.m_iFaction) + ".";
+    OutputStr(strMsg);
+    return true;
+}
 
 // code to make a planet and extract the biom file
 bool _dlgMakePlanet(HWND hDlg)
@@ -1322,9 +1347,11 @@ bool _dlgMakePlanet(HWND hDlg)
 
     // get the planet positon
     HWND hComboPltPos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
-    size_t iPlanetPosition = (size_t)SendMessage(hComboPltPos, CB_GETCURSEL, 0, 0);
-    if (iPlanetPosition == (int)SendMessage(hComboPltPos, CB_GETCOUNT, 0, 0) - 1)
-        iPlanetPosition = LASTPLANETPOSITION;
+    size_t iPlanetPlacement = (size_t)SendMessage(hComboPltPos, CB_GETCURSEL, 0, 0);
+    if (iPlanetPlacement == (int)SendMessage(hComboPltPos, CB_GETCOUNT, 0, 0) - 1)
+        iPlanetPlacement = LASTPLANETPOSITION; // set it 'last' so it goes after everything
+    else
+        iPlanetPlacement++; // placement positions go from 1 to n.
 
     // TODO: allow path to be specified in the dialog
     // Make a biom file for the planet if required
@@ -1356,31 +1383,23 @@ bool _dlgMakePlanet(HWND hDlg)
     // New planet record
     CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
         false, true,
-        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPosition, 
+        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPlacement, 
         oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
 
     // Make a planet
-    if (!pEspDst->makeplanet(pEspSrc, iSrcIdxPlanet, oDstBasicInfoNewPlanet, strErrMsg))
+    CEsp::formid_t NewformId = NO_FORMID;
+    if (!pEspDst->makeplanet(pEspSrc, iSrcIdxPlanet, oDstBasicInfoNewPlanet, NewformId, strErrMsg))
     {
         std::string msg = std::string("Planet creation failed: ") + strErrMsg;
         MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
         return false;
     }
 
-    std::string strMsg;
-    pEspDst->dumpPlanetPositions(iIdxPrimary, strMsg);
-    OutputStr("Planet positions after creation: " + strMsg);
-
-    strMsg = "Planet " + strPlanetFormName + " was created in destination star system "
-        + pEspDst->getAnam(CEsp::eESP_STDT, iIdxPrimary) + " at postion " + std::to_string(iPlanetPosition)
-        + " with player level min/max " + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvl) + "-" + std::to_string(oDstBasicInfoNewPlanet.m_iSysPlayerLvlMax)
-        + " faction " + std::to_string(oDstBasicInfoNewPlanet.m_iFaction) + ".";
-    OutputStr(strMsg);
+    _outputnewplanet(NewformId);
     UpdateStatusBar();
 
     return true;
 }
-
 
 INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1416,7 +1435,12 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
                 // Find out the other planets in the system and their positions
                 // TODO: hard coded for now
                 HWND hComboPpos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
-                std::vector<std::string> strords = { "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "last" };
+                std::vector<std::string> strords = { 
+                    "first", 
+                    "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+                    "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", 
+                    "last" };
+
                 for (const auto& word : strords)
                    SendMessageA(hComboPpos, CB_ADDSTRING, 0, (LPARAM)word.c_str());
                 SendMessage(hComboPpos, CB_SETCURSEL, 0, 0); 
@@ -1520,10 +1544,11 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 }
                 // set up the position selection
                 HWND hComboPpos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
+                /*
                 std::vector<std::string> strords = { "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "last" };
                 for (const auto& word : strords)
                    SendMessageA(hComboPpos, CB_ADDSTRING, 0, (LPARAM)word.c_str());
-                SendMessage(hComboPpos, CB_SETCURSEL, 0, 0); 
+                SendMessage(hComboPpos, CB_SETCURSEL, 0, 0);  */
             }
             return (INT_PTR)TRUE;
 
@@ -1554,7 +1579,7 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                         {
                             // find the moon's parent and added to the list
                             CEsp::BasicInfoRec oParentPlanet;
-                            size_t iIdxMoonparent = pEspSrc->getMoonParentIdx(oBasicInfo.m_iIdx);
+                            size_t iIdxMoonparent = pEspSrc->findParentIdx(oBasicInfo.m_iIdx);
                             pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iIdxMoonparent, oParentPlanet);
                             oHasMoons.push_back(oParentPlanet);
                         }

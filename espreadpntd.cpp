@@ -232,7 +232,7 @@ void CEsp::_dopndt_op(size_t iPndtIdx)
         std::lock_guard<std::mutex> guard(m_output_mutex);
         m_MissingBfceMap[oRec.m_pHdr->m_formid] = GENrec(eESP_PNDT, iPndtIdx);
     }
-    else
+
     if (oRec.m_isBad)
     {
         // Add to bad list
