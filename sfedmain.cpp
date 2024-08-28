@@ -910,7 +910,7 @@ void UpdateFormNameInDlg(HWND hDlg, int iSrcEdit, int iDstEdit, bool bStar = fal
 
     capsFirstLetter(newText);
     newText.erase(std::remove_if(newText.begin(), newText.end(), ::isspace), newText.end());
-    newText += bStar ? "Star" : "Data";
+    newText += bStar ? "Star" : "PlanetData";
     SetWindowTextA(GetDlgItem(hDlg, iDstEdit), newText.c_str());
 }
 
@@ -1261,8 +1261,15 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                     size_t iSystemPlayerLevel = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL), CB_GETCURSEL, 0, 0);
                     size_t iSystemPlayerLevelMax = SendMessage(GetDlgItem(hDlg, IDC_PLAYER_LEVEL_MAX), CB_GETCURSEL, 0, 0);
 
+                    if (iSystemPlayerLevel > iSystemPlayerLevelMax)
+                    {
+                        std::string msg = std::string("The player level minimum must be smaller than the maxinum.") + strErrMsg;
+                        MessageBoxA(hDlg, msg.c_str(), "Warning", MB_OK | MB_ICONWARNING);
+                        break;
+                    }
+
                     CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, false, 
-                        ofPos, NO_RECIDX, NO_ORBIT, NO_PLANETPOS, iSystemPlayerLevel, iSystemPlayerLevelMax, NO_FACTION);
+                        ofPos, NO_RECIDX, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT, iSystemPlayerLevel, iSystemPlayerLevelMax, NO_FACTION);
                     if (!pEspDst->makestar(pEspSrc, iIdxStar, oBasicInfo, strErrMsg))
                     {
                         std::string msg = std::string("Star creation failed: ") + strErrMsg;
@@ -1303,7 +1310,7 @@ bool _outputnewplanet(CEsp::formid_t NewformId)
 
     // display new planet details
     strMsg = "Planet " + std::string(oNew.m_pName) + " was created in destination star system "
-        + pEspDst->getAnam(CEsp::eESP_STDT, oNew.m_iPrimaryIdx) + " at placement " + std::to_string(oNew.m_iPlanetPlacement) +
+        + pEspDst->getAnam(CEsp::eESP_STDT, oNew.m_iPrimaryIdx) + " at placement " + std::to_string(oNew.m_iPlanetPlacement) + " and parent placement of " + std::to_string(oNew.m_iParentPlacement) +
         +" with player level min/max " + std::to_string(oNew.m_iSysPlayerLvl) + "-" + std::to_string(oNew.m_iSysPlayerLvlMax)
         + " faction " + std::to_string(oNew.m_iFaction) + ".";
     OutputStr(strMsg);
@@ -1335,6 +1342,7 @@ bool _dlgMakePlanet(HWND hDlg)
         MessageBoxA(hDlg, msg.c_str(), "Warning", MB_OK | MB_ICONWARNING);
         return false;
     }
+
 
     HWND hComboDestStar = GetDlgItem(hDlg, IDC_COMBO4);
     selectedIndex = SendMessage(hComboDestStar, CB_GETCURSEL, 0, 0);
@@ -1375,7 +1383,6 @@ bool _dlgMakePlanet(HWND hDlg)
     else
         OutputStr("Planet biom file not extracted as source planet is not landable and has no biom data, i.e. it is as a gas giant.");
 
-    // TODO handle moons
     // find primary so we can copy over player level and faction info to new planet
     CEsp::BasicInfoRec oDstBasicInfoPrimaryStar;
     pEspDst->getBasicInfo(CEsp::eESP_STDT, iIdxPrimary, oDstBasicInfoPrimaryStar);
@@ -1383,7 +1390,7 @@ bool _dlgMakePlanet(HWND hDlg)
     // New planet record
     CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
         false, true,
-        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPlacement, 
+        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPlacement, NO_PARENTPLACEMENT,
         oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
 
     // Make a planet
@@ -1454,7 +1461,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
             if (pEspSrc && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO2)
             {
                 // Get the selected item index
-                CEsp::formid_t iIdx = CB_ERR;
+                size_t iIdx = CB_ERR;
                 LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
                 if (selectedIndex != CB_ERR)
                     iIdx = (CEsp::formid_t) SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
@@ -1507,48 +1514,129 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     return (INT_PTR)FALSE;
 }
 
+// code to make a moon
+bool _dlgMakeMoon(HWND hDlg)
+{
+    if (!pEspDst)
+    {
+        MessageBoxA(hDlg, "No destination ESP file for saving was selected.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
 
+    HWND hComboPlanet = GetDlgItem(hDlg, IDC_COMBO5);
+    LRESULT selectedIndex = SendMessage(hComboPlanet, CB_GETCURSEL, 0, 0);
+    if (selectedIndex == CB_ERR)
+    {
+        MessageBoxA(hDlg, "No source moon has been selected to be used to create the new planet.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    size_t iSrcIdxMoon = (CEsp::formid_t)SendMessage(hComboPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+    // get the names
+    std::string strMoonName;
+    GetEditItemText(hDlg, IDC_EDIT_PNNAME, strMoonName);
+    std::string strMoonFormName;
+    GetEditItemText(hDlg, IDC_EDIT_PNNAMEFORM, strMoonFormName);
+
+    // Set the moon parent planet
+    // TODO:
+
+    // get the destination planet idx
+    HWND hComboDestPlanet = GetDlgItem(hDlg, IDC_COMBO4);
+    selectedIndex = SendMessage(hComboDestPlanet, CB_GETCURSEL, 0, 0);
+    if (selectedIndex == CB_ERR)
+    {
+        MessageBoxA(hDlg, "No destination planet for the moon has been selected.", "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+    size_t  iIdxDestPlanet = (size_t)SendMessage(hComboDestPlanet, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+    // Make a biom file for the planet if required
+    CEsp::BasicInfoRec oSrcBasicInfoMoon;
+    pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iSrcIdxMoon, oSrcBasicInfoMoon);
+
+    std::string strErrMsg;
+    if (oSrcBasicInfoMoon.m_bIsLandable)
+    {
+        std::wstring wstrNewFileName;
+        std::wstring wstrSrcArchivePath = _buildSrcbiomFileName();
+        std::string strSrcMoonName = oSrcBasicInfoMoon.m_pAName;
+        if (!pEspDst->makebiomfile(wstrSrcArchivePath, strSrcMoonName, strMoonName, wstrNewFileName, strErrMsg))
+        {
+            std::string msg = std::string("Moon biom file extraction failed: ") + strErrMsg + ". Ignoring this will mean the moon cannot be landed on in game.";
+            if (MessageBoxA(hDlg, msg.c_str(), "Error", MB_OKCANCEL | MB_DEFBUTTON2) == IDCANCEL)
+                return false;
+        }
+        OutputStr("Moon biom file " + wstrtostr(wstrNewFileName) + " was extracted to be used for the new moon. This must be included with your final mod.");
+    }
+    else
+        OutputStr("Moon biom file not extracted as source moon is not landable and has no biom data.");
+
+    // find primary so we can copy over player level and faction info to new planet
+    CEsp::BasicInfoRec oDstBasicInfoDestPlanet;
+    pEspDst->getBasicInfo(CEsp::eESP_PNDT, iIdxDestPlanet, oDstBasicInfoDestPlanet);
+
+    // get the primary star
+    CEsp::BasicInfoRec oDstBasicInfoPrimaryStar;
+    pEspDst->getBasicInfo(CEsp::eESP_STDT, oDstBasicInfoDestPlanet.m_iPrimaryIdx, oDstBasicInfoPrimaryStar);
+
+    // New planet record
+    CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strMoonFormName.c_str(), strMoonName.c_str(),
+        false, true,
+        NO_FPOS, NO_RECIDX, oDstBasicInfoDestPlanet.m_iPrimaryIdx, LASTPLANETPOSITION, oDstBasicInfoDestPlanet.m_iPlanetPlacement,
+        oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
+
+    // Make a planet
+    CEsp::formid_t NewformId = NO_FORMID;
+    if (!pEspDst->makeplanet(pEspSrc, iSrcIdxMoon, oDstBasicInfoNewPlanet, NewformId, strErrMsg))
+    {
+        std::string msg = std::string("Planet creation failed: ") + strErrMsg;
+        MessageBoxA(hDlg, msg.c_str(), "Error", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    _outputnewplanet(NewformId);
+    UpdateStatusBar();
+
+    return true;
+}
 
 INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
         case WM_INITDIALOG:
-            if (pEspSrc && pEspDst)
             {
-
-                MessageBox(hDlg, L"Work in process - not functional", L"Error", MB_OK);
-
-                // Hide moons by default
                 CheckDlgButton(hDlg,  IDC_CHECKUNLAND, BST_CHECKED); 
-
-                // Populate Combo with src stars
-                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
-                pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs, true);
-                HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
-                for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                if (pEspSrc)
                 {
-                    LRESULT index = SendMessageA(hCombo2, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
-                    if (index != CB_ERR && index != CB_ERRSPACE)
-                        SendMessage(hCombo2, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                    // Populate Combo with src stars
+                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                    pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs, true);
+                    HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
+                    for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+                    {
+                        LRESULT index = SendMessageA(hCombo2, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
+                        if (index != CB_ERR && index != CB_ERRSPACE)
+                            SendMessage(hCombo2, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                    }
                 }
 
-                // Populate Combo with dst stars
-                pEspDst->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs, true);
-                HWND hCombo4 = GetDlgItem(hDlg, IDC_COMBO4);
-                for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                if (pEspDst)
                 {
-                    LRESULT index = SendMessageA(hCombo4, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
-                    if (index != CB_ERR && index != CB_ERRSPACE)
-                        SendMessage(hCombo4, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                    // Populate Combo with dst with planets (won't worry about selecting a star system in dst 
+                    // as the number of planets in a dst ESP will be small
+                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                    pEspDst->getBasicInfoRecs(CEsp::eESP_PNDT, oBasicInfoRecs, true);
+                    HWND hCombo4 = GetDlgItem(hDlg, IDC_COMBO4);
+                    for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+                        if (!oBasicInfo.m_bIsMoon)
+                        {
+                            LRESULT index = SendMessageA(hCombo4, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pAName);
+                            if (index != CB_ERR && index != CB_ERRSPACE)
+                                SendMessage(hCombo4, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                        }
                 }
-                // set up the position selection
-                HWND hComboPpos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
-                /*
-                std::vector<std::string> strords = { "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "last" };
-                for (const auto& word : strords)
-                   SendMessageA(hComboPpos, CB_ADDSTRING, 0, (LPARAM)word.c_str());
-                SendMessage(hComboPpos, CB_SETCURSEL, 0, 0);  */
             }
             return (INT_PTR)TRUE;
 
@@ -1558,85 +1646,54 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             else
             if (pEspSrc && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO2) // star change
             {
-                // Get the selected item index
-                CEsp::formid_t iIdx = CB_ERR;
+                // Get the selected starsystem item index
+                size_t iIdx = CB_ERR;
                 LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
                 if (selectedIndex != CB_ERR)
-                    iIdx = (CEsp::formid_t) SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+                    iIdx = (size_t) SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
 
                 if (iIdx != CB_ERR)
                 {
                     std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
-                    bool IncludeMoons = false;
-                    bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
-                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, IncludeMoons, true);
-
-                    HWND hCombo = GetDlgItem(hDlg, IDC_COMBO3);
-                    SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
-                    std::vector<CEsp::BasicInfoRec>oHasMoons;
-                    for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
-                        if (oBasicInfo.m_bIsMoon && *oBasicInfo.m_pAName) // leave out blank records (bad)
-                        {
-                            // find the moon's parent and added to the list
-                            CEsp::BasicInfoRec oParentPlanet;
-                            size_t iIdxMoonparent = pEspSrc->findParentIdx(oBasicInfo.m_iIdx);
-                            pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iIdxMoonparent, oParentPlanet);
-                            oHasMoons.push_back(oParentPlanet);
-                        }
-
-                    bool bAddedPlanet = false;
-                    for (CEsp::BasicInfoRec &oBasicInfo : oHasMoons) // go through planets with moons and add them only once to the list
-                        if (!oBasicInfo.m_bRtFlag)
-                        {
-                            std::string str;
-                            str = std::string(oBasicInfo.m_pAName);
-                            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
-                            if (index != CB_ERR && index != CB_ERRSPACE)
-                                SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
-                            oBasicInfo.m_bRtFlag = bAddedPlanet = true;
-                        }
-                }
-            }
-            else
-            if (pEspSrc && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO3 ) // planet change
-            {
-                 // Get the selected star
-                size_t iIdx = CB_ERR;
-                {
-                    HWND hStarCombo = GetDlgItem(hDlg, IDC_COMBO2);
-                    LRESULT selectedIndex = SendMessage(hStarCombo, CB_GETCURSEL, 0, 0);
-                    if (selectedIndex != CB_ERR)
-                        iIdx = (size_t)SendMessage(hStarCombo, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
-                }
-
-                // Get the selected planet
-                size_t iPlanetIdx = CB_ERR;
-                {
-                    LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
-                    if (selectedIndex != CB_ERR)
-                        iPlanetIdx = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
-                }
-
-                if (iIdx != CB_ERR)
-                {
-                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
-                    bool IncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
-                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iIdx, oBasicInfoRecs, true, IncludeUnlandable);
+                    bool bIncludeUnlandable = !(IsDlgButtonChecked(hDlg, IDC_CHECKUNLAND) == BST_CHECKED);
+                    pEspSrc->getBasicInfoRecsOrbitingPrimary(CEsp::eESP_PNDT, iIdx, oBasicInfoRecs, true, bIncludeUnlandable);
 
                     HWND hCombo = GetDlgItem(hDlg, IDC_COMBO5);
                     SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
-                    for (const CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs)
+                    for (CEsp::BasicInfoRec &oBasicInfo : oBasicInfoRecs) 
                     {
-                        if (*oBasicInfo.m_pAName && oBasicInfo.m_bIsMoon && oBasicInfo.m_iPrimaryIdx == iPlanetIdx) // leave out blank records (bad)
-                        {
-                            std::string str;
-                            str = std::string(oBasicInfo.m_pAName);
-                            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
-                            if (index != CB_ERR && index != CB_ERRSPACE)
-                                SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
-                        }
+                        std::string str;
+                        str = std::string(oBasicInfo.m_pAName);
+                        LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)str.c_str());
+                        if (index != CB_ERR && index != CB_ERRSPACE)
+                            SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
                     }
                 }
+            }
+            else
+            if (pEspDst && HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO4) // dst planet chng
+            {
+                // Get the selected planet
+                size_t iIdxPlanet = CB_ERR;
+                LRESULT selectedIndex = SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
+                if (selectedIndex != CB_ERR)
+                    iIdxPlanet = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
+
+                // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet placement for the planet
+                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                pEspDst->getMoons(iIdxPlanet, oBasicInfoRecs);
+
+                // find the last moon and use a postfix after that for the name
+                std::vector<std::string> strpostfxs;
+                for (char c = 'a'; c < 'z'; c++) strpostfxs.push_back(std::string(std::string("-") + c));
+                std::string strPostFix = "-invalid";
+                if (oBasicInfoRecs.size()<strpostfxs.size())
+                    strPostFix = strpostfxs[oBasicInfoRecs.size()];
+
+                CEsp::BasicInfoRec oPlanet;
+                pEspDst->getBasicInfo(CEsp::eESP_PNDT, iIdxPlanet, oPlanet);
+                std::string strmooname =  std::string(oPlanet.m_pAName) + strPostFix;
+                SetWindowTextA(GetDlgItem(hDlg, IDC_EDIT_PNNAME), strmooname.c_str());
             }
             else
             if ((LOWORD(wParam) == IDC_CHECK2 || LOWORD(wParam) == IDC_CHECKUNLAND) && HIWORD(wParam) == BN_CLICKED)
@@ -1646,10 +1703,8 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             else
             if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
             {
-                if (LOWORD(wParam) == IDOK)
+                if (LOWORD(wParam) == IDOK && !_dlgMakeMoon(hDlg))
                 {
-                    // TODO make moon
-                    // 
                     // Force an update since data might have changed as a result of the create process...
                     // TODO: needed? not sure things that mod data, happen late on and likely too late to get here.
                     break;
@@ -1667,11 +1722,12 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 }
 
 
-// TODO: test planet positon setting works
+// TODO: more name validation to prevent unwanted chars
+// TODO  allow for a custom moon name (would need to check if unique)
+// TODO: test moons
 // TODO: show selected star/planet info in dialogs, save and save as show name
 // TODO: clean up saving (make sure it works)
 // TODO: better map - let positon be selected on map?
-// TODO: support moons
 // TODO: ?when creating a star extend the dialog so it also has the creating planet part as a star must have at least one planet, or change to a wizard with steps
 // TODO: extend dialog to allow for more editing of other records of data
 // TODO: support editing of biom data

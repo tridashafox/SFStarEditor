@@ -52,7 +52,7 @@ CEsp::GenBlock* CEsp::_makegenblock(const char *tag, const void* pdata, size_t i
     if (ilen > 0xFFFF)
         return nullptr;
 
-    uint16_t ilen16 = static_cast<uint16_t>(ilen);
+    uint16_t ilen16 = static_cast<uint16_t>(ilen); // for null terminater
 
     // Allocate memory for the struct plus the string
     GenBlock* pnewblk = (GenBlock*)malloc(totalSize);
@@ -90,6 +90,7 @@ void CEsp::_deleterec(std::vector<char>& newbuff, const char* removestart, const
 }
 
 // insert a string into the block of memory over existing string 
+/*
 void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
 {
     if (!newbuff.size() || !pDstInsertPosition || !pNewbuff || !iSizeNewBuffer) 
@@ -114,7 +115,38 @@ void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, siz
         // Copy the new name into the buffer at the correct location
         memcpy(newbuff.data() + offset, pNewbuff, newSize);
     }
-} 
+} */
+
+void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
+{
+    if (newbuff.empty() || !pDstInsertPosition || !pNewbuff || iSizeNewBuffer == 0)
+        return;
+
+    // Calculate the offset from the start of the buffer
+    ptrdiff_t offset = pDstInsertPosition - newbuff.data();
+
+    // Ensure that the offset is within valid bounds
+    if (offset < 0 || static_cast<size_t>(offset) > newbuff.size())
+        return;
+
+    // Calculate the new size of the insertion
+    size_t newSize = iSizeNewBuffer;
+
+    // Resize the buffer to accommodate the new data
+    if (newSize > oldSize)
+    {
+        // Insert extra space if new size is larger
+        newbuff.insert(newbuff.begin() + offset + oldSize, newSize - oldSize, 0);
+    }
+    else if (newSize < oldSize)
+    {
+        // Erase excess space if new size is smaller
+        newbuff.erase(newbuff.begin() + offset + newSize, newbuff.begin() + offset + oldSize);
+    }
+
+    // Use memmove instead of memcpy in case of overlapping memory regions
+    memmove(newbuff.data() + offset, pNewbuff, newSize);
+}
 
 
 // insert a string into the block of memory over existing string and update the size
@@ -148,9 +180,24 @@ void CEsp::_insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNa
         // Update size
         *((uint16_t*)(newbuff.data() + iSaveSizeoffset)) =  static_cast<uint16_t>(newNameSize); // do like this in case the orginal size pointer value changed
     }
-
-    // Rebuild oRec because above will have moved memory around invalidating pointers
 } 
+
+// Update the compressed buffer from the decompressed one
+void CEsp::_updateCompressed(std::vector<char> &buff, PNDTrec& oRec)
+{
+
+    // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
+    std::vector<char> newcompressbuffer;
+    if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
+        return;
+
+    PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr);
+    pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
+
+    _insertbuff(buff, (char*)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
+    oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
+
+}
 
 
 // For the passed group append the passed new record 
@@ -170,8 +217,14 @@ bool CEsp::appendToGrup(char *pgrup, const std::vector<char>& insertData)
     size_t oldBufferSize = m_buffer.size();
     m_buffer.resize(oldBufferSize + insertData.size());
 
-    // Move existing data after the GRUP section to make room for newbuff.
-    memmove(m_buffer.data() + insertoffset + insertData.size(), m_buffer.data() + insertoffset, oldBufferSize - insertoffset);
+    if (insertoffset < oldBufferSize) // check if nothing after this so no need to move
+    {
+        // Move existing data after the GRUP section to make room for newbuff.
+        memmove(m_buffer.data() + insertoffset + insertData.size(), m_buffer.data() + insertoffset, oldBufferSize - insertoffset);
+    }
+
+    if ((m_buffer.data() + insertoffset + insertData.size()) >= (m_buffer.data() + m_buffer.size()))
+        dbgout("Normalised - Staring at " + std::to_string(0) + " Ending at " + std::to_string(insertData.size()) + " Buffer size " + std::to_string(m_buffer.size() - insertoffset) + "\n");
 
     // Insert the new data into the buffer at the correct position.
     std::copy(insertData.begin(), insertData.end(), m_buffer.begin() + insertoffset);
@@ -547,7 +600,7 @@ bool CEsp::createLocPlanet(const std::vector<char>& newPlanetbuff, const BasicIn
     PNDTrec oRec = {};
     oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newPlanetbuff[0]);
     _decompressPndt(oRec, newPlanetbuff);
-    _rebuildPndtRecFromBuffer(oRec, newPlanetbuff);
+    _rebuildPndtRecFromDecompBuffer(oRec);
 
     if (!oRec.m_pGnam || !oRec.m_pAnam || !oRec.m_pHdr)
         return false; // Did not build fully the oRec from the decompressed buffer 
@@ -616,7 +669,7 @@ void CEsp::_decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff)
     decompress_data(oRec.m_pcompdata, oRec.m_compdatasize, oRec.m_decompdata, oRec.m_pHdr->m_decompsize);
 }
 
-void CEsp::_rebuildPndtRecFromBuffer(PNDTrec &oRec, const std::vector<char>&newpndbuff)
+void CEsp::_rebuildPndtRecFromDecompBuffer(PNDTrec &oRec)
 {
     // build out other PNDT data records
     const char* searchPtr = &oRec.m_decompdata[0];
@@ -632,7 +685,11 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
     // m_parentPndtplacement is from 1 to n, and is the position of the planet where the moon is
 
     std::vector<BasicInfoRec> oBasicInfoRecs;
-    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iPrimaryIdx, oBasicInfoRecs, true, true);
+    getBasicInfoRecsOrbitingPrimary(eESP_STDT, iPrimaryIdx, oBasicInfoRecs, true, true);
+
+    // need some info on the new planet 
+    BasicInfoRec oNewPlanet;
+    getBasicInfo(eESP_PNDT, iNewPlanetIdx, oNewPlanet);
         
     // Remove iNewPlanetIdx from the list so we don't include in the processing, we want to insert it into the correct place
     oBasicInfoRecs.erase(std::remove_if(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
@@ -663,8 +720,8 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
     size_t iNewPos = iPlanetPos;
     if (iPlanetPos > oBasicInfoRecs.size())
     {
-        if (idxStartofMoons == NO_ORBIT)
-            iNewPos = oBasicInfoRecs.size()+1; // no moons set placement to next
+        if (idxStartofMoons == NO_ORBIT || oNewPlanet.m_iParentPlacement)
+            iNewPos = oBasicInfoRecs.size()+1; // no moons or is a moon so set placement at end
         else
             iNewPos = oBasicInfoRecs[idxStartofMoons].m_iPlanetPlacement; // insert new (n) at where the moons start e.g at 3m if 1p,2p,3m,4m - 1p,2p,3n,4m,5m
     }
@@ -674,19 +731,60 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
         if (oBasicInfo.m_iPlanetPlacement >= iNewPos)
             oBasicInfo.m_iPlanetPlacement += 1;
 
-    // write the new positions back into the file buffer
+    // write the new positions back into pndt records
+    struct SafeStore {
+        formid_t m_formid;
+        size_t m_newplace;
+        SafeStore(formid_t formid, size_t newplace) : m_formid(formid), m_newplace(newplace) { }
+    };
+    std::vector<SafeStore> oUpdates;
+
     for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
     {
-        const PNDTGnamOv* pGnam = m_pndts[oBasicInfo.m_iIdx].m_pGnam;
-        PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
+        //const PNDTGnamOv* pGnam = m_pndts[oBasicInfo.m_iIdx].m_pGnam;
+       // PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
+       // pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
+        oUpdates.push_back(SafeStore(m_pndts[oBasicInfo.m_iIdx].m_pHdr->m_formid, oBasicInfo.m_iPlanetPlacement));
+        // recompress the record and insert it
     }
 
     if (iNewPos!=iPlanetPos)
     {
-        const PNDTGnamOv* pGnam = m_pndts[iNewPlanetIdx].m_pGnam;
-        PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(iNewPos);
+       // const PNDTGnamOv* pGnam = m_pndts[iNewPlanetIdx].m_pGnam;
+       // PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
+       // pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(iNewPos);
+        oUpdates.push_back(SafeStore(m_pndts[iNewPlanetIdx].m_pHdr->m_formid, iNewPos));
+    }
+
+    // Ouch - ptrs for planets will point into the decompress buffer which is not part of the m_buffer
+    // so not an issue updating them except this will do nothing unless the data is recompressed and put back into m_buffer
+    // do this will break all ptrs in the Esp, so we need to be careful. doing updates a single rec is painful.
+    // For no we have to use formids to search into the data after each rebuild so we can do multiple updates, compresses and reloads
+    // TODO: change approach serialise data. 
+    std::string strErrReload;
+    _loadfrombuffer(strErrReload); // after call anything in m_pndts is now reloaded 
+    for (SafeStore& oSafe : oUpdates)
+    {
+        BasicInfoRec oBasicRec;
+        if (!getBasicInfo(eESP_PNDT, oSafe.m_formid, oBasicRec))
+            return false;
+        const PNDTGnamOv* pGnam = m_pndts[oBasicRec.m_iIdx].m_pGnam;
+        PNDTGnamOv * pMutableGnam = makeMutable(pGnam);
+        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oSafe.m_newplace);
+
+        // Ouch we need to recompress if we change something
+        // if we recompress we need to update the group size
+        // if we recompress we invalidate pointers due to size changes in m_buffer
+        size_t grupOffset = (char*)m_grupPndtPtrs[0] - &m_buffer[0];
+        size_t oldCompSize = m_pndts[oBasicRec.m_iIdx].m_compdatasize;
+        _updateCompressed(m_buffer, m_pndts[oBasicRec.m_iIdx]); 
+        size_t newCompSize = m_pndts[oBasicRec.m_iIdx].m_compdatasize;
+        char *pgrup = m_buffer.data() + grupOffset;
+        GRUPHdrOv *pGrupHdr = reinterpret_cast<GRUPHdrOv*>(pgrup);
+        size_t newGrupSize = pGrupHdr->m_size + (newCompSize - oldCompSize);
+        pGrupHdr->m_size = static_cast<uint32_t>(newGrupSize);
+
+        _loadfrombuffer(strErrReload); // after call anything in m_pndts is now reloaded 
     }
 
     return true;
@@ -707,7 +805,7 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
         const char* removestart = reinterpret_cast<const char*>(pPpbd);
         const char* removeend = &removestart[pPpbd->m_size + sizeof(pPpbd->m_PPBDtag) + sizeof(pPpbd->m_size)];
          _deleterec(oRec.m_decompdata, removestart, removeend);
-        _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+        _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
         _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
         // debug _saveToFile(oRec.m_decompdata, strDirectoryPath + std::to_wstring(i++) + L".bin", strErr);
     }
@@ -729,7 +827,7 @@ void CEsp::_clonefixupcompsPndt(CEsp::PNDTrec& oRec)
 
                 // insert will rebuild oRec after its changes at this point in the fixes oRec has the new name so we dont need BasicInfo
                 _insertname(oRec.m_decompdata, (char *)&pFULLrecOv->m_name, (uint16_t *)&pFULLrecOv->m_size, (char *)&oRec.m_pAnam->m_aname);
-                _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+                _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
                 _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
                 break;
             }
@@ -765,7 +863,7 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     PNDTrec oRec = {};
      oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]);
      _decompressPndt(oRec, newbuff);
-    _rebuildPndtRecFromBuffer(oRec, newbuff);
+    _rebuildPndtRecFromDecompBuffer(oRec);
     if (!oRec.m_pHdr)
         return NO_FORMID; // should not happen bad hdr ptr
 
@@ -789,7 +887,7 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     {
         PNDTGnamOv* pMutableGnam = makeMutable(oRec.m_pGnam);
         pMutableGnam->m_systemId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId;
-        pMutableGnam->m_parentPndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPrimaryIdx); // zero unless it's a moon
+        pMutableGnam->m_parentPndtplacement = static_cast<uint32_t>(oBasicInfo.m_iParentPlacement); // zero unless it's a moon
         pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
     }
     
@@ -798,14 +896,14 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
 
     // Do mods to the decompressed buffer which affect the size.
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pEdid->m_name, (uint16_t *)&oRec.m_pEdid->m_size, oBasicInfo.m_pName);
-    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+    _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
    
     if (!oRec.m_pAnam || !oRec.m_pAnam->m_size || !oRec.m_pAnam->m_aname)
         return NO_FORMID; // Bad full name
 
     _insertname(oRec.m_decompdata, (char *)&oRec.m_pAnam->m_aname, (uint16_t *)&oRec.m_pAnam->m_size, oBasicInfo.m_pAName);
-    _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+    _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
     _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by insert
 
     // Remove POIs, delete contents of CNAM and set its size to zero but keep tag and the size of 0x0000
@@ -816,7 +914,7 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
         PNDTCnamOv * pMutableHdr = makeMutable(oRec.m_pCnam); 
         pMutableHdr->m_size = 0;
         _deleterec(oRec.m_decompdata, removestart, removeend);
-        _rebuildPndtRecFromBuffer(oRec, oRec.m_decompdata); // reload info due to memory changes
+        _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
         _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
     }
  
@@ -837,17 +935,8 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     #endif
 
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
-    std::vector<char> newcompressbuffer;
-    if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
-        return NO_FORMID;
-
-    _insertbuff(newbuff, (char *)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
-    oRec.m_pHdr = reinterpret_cast<const PNDTHdrOv*>(&newbuff[0]); // reset the hdr ptr in case address of new buff moved
-    _rebuildPndtRecFromBuffer(oRec, newbuff); // reload info due to memory changes
-
-    oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
-    PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr); 
-    pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
+    // Must be last call in function
+    _updateCompressed(newbuff, oRec);
 
     return iformIdforNewPlanet;
 }

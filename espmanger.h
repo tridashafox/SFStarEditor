@@ -64,6 +64,7 @@ public:
 #define MAX_PLAYERLEVEL (255)
 #define NO_FACTION (0)
 #define NO_PLANETPOS (0)
+#define NO_PARENTPLACEMENT (0)
 #define LASTPLANETPOSITION (254)
 #define GENBUFFSIZE (1024)
 #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
@@ -111,10 +112,11 @@ public:
         BasicInfoRec(const ESPRECTYPE eType, const char* pName, const char* pAName,
             const bool bMoon, const bool bLandable, 
             const fPos& oPos, const size_t iIdx, 
-            const size_t iPrimaryIdx, const size_t iPlanetPlacement,
+            const size_t iPrimaryIdx, const size_t iPlanetPlacement, const size_t iParentPlacement,
             const size_t iSysPlayerLvl, const size_t iSysPlayerLvlMax, const size_t iFaction) :
             m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_bIsLandable(bLandable), m_StarMapPostion(oPos),
-            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPlacement(iPlanetPlacement), m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
+            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPlacement(iPlanetPlacement), m_iParentPlacement(iParentPlacement),
+            m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
             m_iFaction(iFaction) { m_bRtFlag = false; }
         void clear()
         {
@@ -127,6 +129,7 @@ public:
             m_iIdx = NO_RECIDX;
             m_iPrimaryIdx = NO_ORBIT; 
             m_iPlanetPlacement = 0;
+            m_iParentPlacement = 0; 
             m_iSysPlayerLvl = 0;
             m_iSysPlayerLvlMax = 0;
             m_iFaction = 0;
@@ -141,6 +144,7 @@ public:
         size_t m_iIdx;         // Idx to core data
         size_t m_iPrimaryIdx;  // Idx to parent star [TODO: Or planet, in which case it will need a eType for the PrimaryIdx]
         size_t m_iPlanetPlacement;   // The position for a planet [TODO: how are moons handled]
+        size_t m_iParentPlacement; // for moons which planet by placement it is orbiting 
         size_t m_iSysPlayerLvl; // Level of the star system. Used to populate location records and set level
         size_t m_iSysPlayerLvlMax;     // Max level things can be in the location
         size_t m_iFaction;      // faction what it belongs to if any
@@ -667,6 +671,7 @@ private:
     bool findFmIDMap(formid_t formid, GENrec& fndrec);
     bool findKeyword(const LCTNrec& oRec, uint32_t iKeyword);
     bool findLocInfo(const STDTrec& oRecStar, size_t& iPlayerLvl, size_t& iPlayerLvlMax, size_t &iFaction);
+    size_t findPrimaryIdx(size_t iIdx);
     size_t findPrimaryIdx(size_t iIdx, fPos& oSystemPosition);
     size_t findPndtsFromStdt(size_t iIdx, std::vector<size_t>& oFndPndts);
     bool isBadPosition(const fPos& oPos);
@@ -735,10 +740,11 @@ private:
     bool cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const BasicInfoRec &oBasicInfo);
 
     // Planet
+    void _updateCompressed(std::vector<char> &buff, PNDTrec& oRec);
     bool _adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos);
     void _decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff);
     bool _refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize);
-    void _rebuildPndtRecFromBuffer(PNDTrec& oRec, const std::vector<char>& newpndtbuff);
+    void _rebuildPndtRecFromDecompBuffer(PNDTrec& oRec);
     void _clonefixupcompsPndt(PNDTrec& oRec);
     bool createLocPlanet(const std::vector<char> &newPlanetbuff, const BasicInfoRec &oBasicInfo, std::vector<char> &newLocbuff);
     formid_t clonePndt(std::vector<char>& newbuff, const PNDTrec& opndtRec, const BasicInfoRec& oBasicInfo);
@@ -762,7 +768,7 @@ public:
 
     // for star map
     float calcDist(const fPos& p1, const fPos& p2);
-    size_t findParentIdx(size_t iIdx);
+    void getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos);
     void getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);
     float findClosestDist(const size_t iSelfIdx, const fPos &targetPos, const std::vector<BasicInfoRec>& oBasicInfoRecs, size_t& idx);
     float getMinDistance(float fMinDistance = std::numeric_limits<float>::max());

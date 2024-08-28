@@ -68,6 +68,12 @@ bool CEsp::findLocInfo(const STDTrec &oRecStar, size_t &iPlayerLvl, size_t &iPla
 }
 
 // Given index to a planet, finds what it is orbiting
+size_t CEsp::findPrimaryIdx(size_t iIdx)
+{
+    fPos oSystemPosition;
+    return findPrimaryIdx(iIdx, oSystemPosition);
+}
+
 size_t CEsp::findPrimaryIdx(size_t iIdx, fPos& oSystemPosition)
 {
     oSystemPosition.clear();
@@ -86,17 +92,6 @@ size_t CEsp::findPrimaryIdx(size_t iIdx, fPos& oSystemPosition)
                 }
         }
     }
-    return NO_ORBIT;
-}
-
-// Given index to a planet find it's parent if it's a moon
-size_t CEsp::findParentIdx(size_t iIdx)
-{
-    if (m_pndts[iIdx].m_pGnam->m_parentPndtplacement) // it is a moon
-    {
-
-    }
-
     return NO_ORBIT;
 }
 
@@ -373,7 +368,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicStarRec(const size_t iIdx)
         (const char*)&m_stdts[iIdx].m_pEdid->m_name,
         (const char*)&m_stdts[iIdx].m_pAnam->m_aname,
         false, false,
-        m_stdts[iIdx].getfPos(), iIdx, NO_ORBIT, NO_PLANETPOS,
+        m_stdts[iIdx].getfPos(), iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT,
         iPlayerLvl, iPlayerLvlMax, iFaction);
 }
 
@@ -398,7 +393,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicPlanetRec(const size_t iIdx)
         (const char*)&m_pndts[iIdx].m_pEdid->m_name,
         (const char*)&m_pndts[iIdx].m_pAnam->m_aname,
         bisMoon, bIsLandable,
-        oSystemPosition, iIdx, iPrimaryIdx, m_pndts[iIdx].m_pGnam->m_Pndtplacement,
+        oSystemPosition, iIdx, iPrimaryIdx, m_pndts[iIdx].m_pGnam->m_Pndtplacement, m_pndts[iIdx].m_pGnam->m_parentPndtplacement,
         iPlayerLvl, iPlayerLvlMax, iFaction);
 }
 
@@ -411,7 +406,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicLocRec(const size_t iIdx)
         (const char*)&m_lctns[iIdx].m_pEdid->m_name,
         (const char*)&m_lctns[iIdx].m_pAnam->m_aname,
         false, false,
-        NO_FPOS, iIdx, NO_ORBIT, NO_PLANETPOS,
+        NO_FPOS, iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT,
         m_lctns[iIdx].m_pData->m_playerLvl, m_lctns[iIdx].m_pData->m_playerLvlMax, m_lctns[iIdx].m_pData->m_faction);
 }
 
@@ -465,45 +460,62 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
     return false;
 }
 
+void CEsp::getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos)
+{
+    // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet placement for the planet
+
+    std::vector<BasicInfoRec> oBasicInfosSystem;
+    size_t iPrimaryIdx = findPrimaryIdx(iPlanetIdx);
+    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_PNDT, iPrimaryIdx, oBasicInfosSystem, true, true); // returns only moons moons for system
+
+    // find moons around specified planet
+    for (auto& oBasicInfo : oBasicInfosSystem)
+        if (m_pndts[oBasicInfo.m_iIdx].m_pGnam->m_parentPndtplacement == m_pndts[iPlanetIdx].m_pGnam->m_Pndtplacement)
+            oBasicInfos.push_back(oBasicInfo);
+
+    // sort the moons by their placement in the system (there is no placement with in a planet)
+    std::sort(oBasicInfos.begin(), oBasicInfos.end(),
+        [](const BasicInfoRec& a, const BasicInfoRec& b) {  return a.m_iPlanetPlacement < b.m_iPlanetPlacement; });
+}
+
 // Get all the basic info records for the planets oribiting the passed Primary
-// TODO: support passing a planet as a primary
+// If type eESP_STDT is passed returns all items in the star system idenfieid by iPrimary
+// if type eESP_PNDT is passed returns all the moons in the star system
 void CEsp::getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable)
 {
     oBasicInfos.clear();
     oBasicInfos.shrink_to_fit();
 
-    switch (eType) 
-    {
-        case eESP_STDT:
+    formid_t iSystemId = m_stdts[iPrimary].m_pDnam->m_systemId;
+    auto it = m_SystemIDMap.find(iSystemId);
+    if (it == m_SystemIDMap.end())
+        return;
+    std::vector<GENrec>& genRecords = it->second;
+    for (const GENrec& oRec : genRecords)
+        if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
         {
-            // Find planets given a primary star, get star system id from star
-            formid_t iSystemId = m_stdts[iPrimary].m_pDnam->m_systemId;
-            auto it = m_SystemIDMap.find(iSystemId);
-            if (it != m_SystemIDMap.end())
+            bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_parentPndtplacement != 0;
+            bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
+
+            switch (eType)
             {
-                std::vector<GENrec>& genRecords = it->second;
-                for (const GENrec& oRec : genRecords)
-                {
-                    if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
+                case eESP_STDT:
+                    if ((bIncludeMoons || !bIsMoon) && (bIncludeUnlandable || bIsLandable))
                     {
-                        bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_parentPndtplacement != 0;
-                        bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
-                        if ((bIncludeMoons || !bIsMoon) &&
-                            (bIncludeUnlandable || bIsLandable))
-                        {
-                            BasicInfoRec oBasicInfoPlanet =_makeBasicPlanetRec(oRec.m_iIdx);
-                            oBasicInfos.push_back(oBasicInfoPlanet);
-                        }
+                        BasicInfoRec oBasicInfoPlanet = _makeBasicPlanetRec(oRec.m_iIdx);
+                        oBasicInfos.push_back(oBasicInfoPlanet);
                     }
-                }
+                    break;
+
+                case eESP_PNDT:
+                    if (bIsMoon && (bIncludeUnlandable || bIsLandable))
+                    {
+                        BasicInfoRec oBasicInfoPlanet = _makeBasicPlanetRec(oRec.m_iIdx);
+                        oBasicInfos.push_back(oBasicInfoPlanet);
+                    }
+                    break;
             }
         }
-        break;
-
-        case eESP_PNDT:
-            // TODO: maybe
-        break;
-    }
 }
 
 // Function to calculate the Euclidean distance between two positions

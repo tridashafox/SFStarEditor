@@ -225,18 +225,17 @@ size_t CEsp::dumpMissingBfceMapRecs(std::vector<std::string>&oOutputs)
     return m_BadMap.size();
 }
 
-
 void CEsp::dumpPlanetPositions(size_t iStarIdx, std::string& strOut)
 {
     std::vector<BasicInfoRec> oBasc;
     BasicInfoRec oBasicInfoNewPlanet;
-    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iStarIdx, oBasc, false, true);
+    getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iStarIdx, oBasc, true, true);
     std::sort(oBasc.begin(), oBasc.end(),
         [](const CEsp::BasicInfoRec& a, const CEsp::BasicInfoRec& b) { return a.m_iPlanetPlacement < b.m_iPlanetPlacement; });
     std::string strdmpout = "(";
     for (size_t i = 0; i < oBasc.size(); ++i)
         strdmpout += std::string(oBasc[i].m_pAName) + ": "
-        + std::to_string(oBasc[i].m_iPlanetPlacement) + (oBasc[i].m_bIsMoon ? "m" : "p")
+        + std::to_string(oBasc[i].m_iPlanetPlacement) + (oBasc[i].m_bIsMoon ? "m-" + std::to_string(oBasc[i].m_iParentPlacement) : "p")
         + std::string((i + 1 < oBasc.size()) ? ", " : "");
 
     strOut = strdmpout + ")";
