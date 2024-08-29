@@ -8,15 +8,15 @@ Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/p
 
 ### Releases:
 [Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01).
-IMPORTANT - This is an earily release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
+IMPORTANT - This is an early release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
 
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets to created in the star system
-3. Creates the require locations to ensure navigation is posisble in game
+3. Creates the require locations to ensure navigation is possible in game
 4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
 5. Allows ESM or ESP to be source of the data to be cloned from
-6. Makes a back of of the ESP when it is saved
+6. Makes a back of the ESP when it is saved
 7. Includes are star map to help decide what position the star should be placed in the 3d map.
 8. Checks how close to other stars to ensure not too close/overlapping
 9. Performs name a degree of name validation for new stars and planets
@@ -25,7 +25,6 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 
 ### Limitations:
 1. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
-2. All stars and planets are clones of an existing planet
 
 ### Use: 
 1. Start the app. You will need to have a ESP to work on as your destination. This can be something created from a small change in the creation kit and then saving it.
