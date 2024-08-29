@@ -1862,14 +1862,11 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 }
 
 // TODO: better map - let positon be selected on map?
-// TODO: support pan on map
-// TODO: map to show star system with planets
-// TODO: extend dialog to allow for more editing of other records of data
-// TODO: support editing of biom data ?? does not look much can be edited here
-// TODO: allow 3d view of star/planet
 // TODO: Allow planets as moons, moons as planets
+// TODO: support pan on map
+// TODO: extend dialog to allow for more editing of other records of data
+// TODO: support editing of biom data ?? 
+// TODO: allow 3d view of star/planet using nif and texts 
 // TODO: Provide star system generation (x planets, x moons, etc)
 // TODO: support adding POI
-// TODO: replace current persistence with sertialization model and add in a class model, don't allow any indexs into pndt/stdt/lctn from UX use formids
-
-
+// TODO: replace current persistence with sertialization model and add in a class model, don't allow any indexes into pndt/stdt/lctn from UX use formids
