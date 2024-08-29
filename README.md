@@ -28,8 +28,8 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 2. All stars and planets are clones of an existing planet
 
 ### Use: 
-1. Start the app.
-2. File -> Select source master file (ESM) - Select the starfield.esm file.
+1. Start the app. You will need to have a ESP to work on as your destination. This can be something created from a small change in the creation kit and then saving it.
+2. File -> Select source master file (ESM) - Select the starfield.esm from your starfield data directory. 
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
 4. Star -> Create star - based on an existing star in the source
 5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
