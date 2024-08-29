@@ -34,6 +34,7 @@ Use:
 4. Star -> Create star - based on an existing star in the source
 5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
    Note: A star system must have at least one planet to work in game.
+6. Planet -> Create moon - optional
 7. File -> Save to destination - will save to the loaded destination file. 
 8. Check the ESP works in game.
 9. Add other new planets to the star system as desired.
@@ -44,7 +45,7 @@ Notes:
 2. The star contains the position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
 3. xEdit is useful to validate the ESP after changes.
 
-To be be Licensed under: [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/?ref=chooser-v1) for now.
+Licensed under: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0).
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the author be held liable for any damages
