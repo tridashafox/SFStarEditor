@@ -1069,7 +1069,6 @@ void _drawStar(HDC hdc, size_t iZoomllvl, int iOffX, int iOffY, const CEsp::Star
     if (rx1>=0 && rx1<=width && ry1>=0 && ry1<=height && rx2>=0 && rx2<=width && ry2>=0 && ry2<=height)
         Rectangle(hdc, rx1, ry1, rx2, ry2);
 
-    POINT p;
     int px = iOffX + static_cast<int>(normPos.m_xPos) + static_cast<int>(imar) * 2;
     int py = iOffY + static_cast<int>(normPos.m_yPos);
     if (px >= 0 && px <= width && py >= 0 && py <= height)
