@@ -20,18 +20,18 @@ Features:
 7. Includes are star map to help decide what position the star should be placed in the 3d map.
 8. Checks how close to other stars to ensure not too close/overlapping
 9. Performs name a degree of name validation for new stars and planets
-10. Repositions planets in sequence to ensure planet positions are correct
+10. Repositions planets and moons in sequence to ensure positions are correct
+11. Auto names moons 
 
 Limitations:
-1. Does not support moons at the moment
-2. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
-3. All stars and planets are clones of an existing planet
+1. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
+2. All stars and planets are clones of an existing planet
 
 Use: 
 1. Start the app.
 2. File -> Select source master file (ESM) - Select the starfield.esm file.
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
-4. Star ->Create star - based on an existing star in the source
+4. Star -> Create star - based on an existing star in the source
 5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
    Note: A star system must have at least one planet to work in game.
 7. File -> Save to destination - will save to the loaded destination file. 
