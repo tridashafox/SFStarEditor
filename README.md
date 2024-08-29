@@ -1,4 +1,4 @@
-#Starfield star system editor for ESP moding
+# Starfield star system editor for ESP moding
 Original creation by tridasha.
 
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP pluging file.
@@ -6,11 +6,11 @@ C++ Visual Studio 2022 project.
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if compiling the source. 
 
-##Releases:
+## Releases:
 [Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01).
 IMPORTANT - This is an earily release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
 
-###Features:
+### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets to created in the star system
 3. Creates the require locations to ensure navigation is posisble in game
@@ -23,11 +23,11 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 10. Repositions planets and moons in sequence to ensure positions are correct
 11. Auto names moons 
 
-###Limitations:
+### Limitations:
 1. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
 2. All stars and planets are clones of an existing planet
 
-###Use: 
+### Use: 
 1. Start the app.
 2. File -> Select source master file (ESM) - Select the starfield.esm file.
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
@@ -40,12 +40,12 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 9. Add other new planets to the star system as desired.
 10. Do any refinement to the ESP in the creation kit.
 
-###Notes:
+### Notes:
 1. You will need to include the .biom files extracted by step 5 for the new planet(s) in your final ESP. If these are excluded then it will not be possible to land on the planet.
 2. The star contains the position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
 3. xEdit is useful to validate the ESP after changes.
 
-###License:
+### License:
 Licensed under: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0).
 
   This software is provided 'as-is', without any express or implied
