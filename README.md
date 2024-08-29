@@ -42,7 +42,7 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 
 ### Notes:
 1. You will need to include the .biom files extracted by step 5 for the new planet(s) in your final ESP. If these are excluded then it will not be possible to land on the planet.
-2. The star contains the position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
+2. A star contains a position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
 3. xEdit is useful to validate the ESP after changes.
 
 ### License:
