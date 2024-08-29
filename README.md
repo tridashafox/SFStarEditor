@@ -3,12 +3,11 @@ Original creation by tridasha.
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP pluging file.
 C++ Visual Studio 2022 project. 
 
-Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if are compiling the source. 
-I say this like it would simply work but first you need visual studio installed, then you need vcpkg installed, and built, 
-then you need the vcpkg executable on your path, etc, etc. Note, vcpkg will get the package from https://github.com/madler/zlib and build that. 
+Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if compiling the source. 
 
-In reality, zlib1.dll is flying around all over the place with many apps including a version of it. But it's not on windows by default.
-You can just get a copy of it from the NifSkope directory if you have that installed. Don't go to some random website to get a version of it!
+Releases:
+*IMPORTANT* This is an earily release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
+[Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01)
 
 Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
