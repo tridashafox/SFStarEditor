@@ -64,7 +64,8 @@ public:
 #define MAX_PLAYERLEVEL (255)
 #define NO_FACTION (0)
 #define NO_PLANETPOS (0)
-#define NO_PARENTPLACEMENT (0)
+#define NO_PARENTLOCALID (0)
+#define NO_LOCALID (254)
 #define LASTPLANETPOSITION (254)
 #define GENBUFFSIZE (1024)
 #define STARMAPMAX (30.0) // bounder of starmap planet positions should be within this
@@ -84,6 +85,7 @@ public:
     // standrd objects needed for creating data
     const uint32_t KW_LocTypeStarSystem = 0x149F;
     const uint32_t KW_LocTypePlanet = 0x14A0;
+    const uint32_t KW_LocTypeMoon = 0x16010;
     const uint32_t KW_LocTypeMajorOribital = 0x70A54;
     const uint32_t KW_LoctTypeSurface = 0x16503;
     const uint32_t KW_LoctTypeOrbit = 0x16504;
@@ -112,10 +114,10 @@ public:
         BasicInfoRec(const ESPRECTYPE eType, const char* pName, const char* pAName,
             const bool bMoon, const bool bLandable, 
             const fPos& oPos, const size_t iIdx, 
-            const size_t iPrimaryIdx, const size_t iPlanetPlacement, const size_t iParentPlacement,
+            const size_t iPrimaryIdx, const size_t iPlanetLocalId, const size_t iParentLocalId,
             const size_t iSysPlayerLvl, const size_t iSysPlayerLvlMax, const size_t iFaction) :
             m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_bIsLandable(bLandable), m_StarMapPostion(oPos),
-            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetPlacement(iPlanetPlacement), m_iParentPlacement(iParentPlacement),
+            m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetlocalId(iPlanetLocalId), m_iParentlocalId(iParentLocalId),
             m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
             m_iFaction(iFaction) { m_bRtFlag = false; }
         void clear()
@@ -128,8 +130,8 @@ public:
             m_eType = eESP_IDK;
             m_iIdx = NO_RECIDX;
             m_iPrimaryIdx = NO_ORBIT; 
-            m_iPlanetPlacement = 0;
-            m_iParentPlacement = 0; 
+            m_iPlanetlocalId = 0;
+            m_iParentlocalId = 0; 
             m_iSysPlayerLvl = 0;
             m_iSysPlayerLvlMax = 0;
             m_iFaction = 0;
@@ -143,8 +145,8 @@ public:
         ESPRECTYPE m_eType;    // Type of object
         size_t m_iIdx;         // Idx to core data
         size_t m_iPrimaryIdx;  // Idx to parent star [TODO: Or planet, in which case it will need a eType for the PrimaryIdx]
-        size_t m_iPlanetPlacement;   // The position for a planet [TODO: how are moons handled]
-        size_t m_iParentPlacement; // for moons which planet by placement it is orbiting 
+        size_t m_iPlanetlocalId;   // The position for a planet [TODO: how are moons handled]
+        size_t m_iParentlocalId; // for moons which planet by LocalId it is orbiting 
         size_t m_iSysPlayerLvl; // Level of the star system. Used to populate location records and set level
         size_t m_iSysPlayerLvlMax;     // Max level things can be in the location
         size_t m_iFaction;      // faction what it belongs to if any
@@ -427,8 +429,8 @@ private:
         uint8_t m_GNAMtag[4];
         uint16_t m_size;
         formid_t m_systemId; // a unique id tied to the location which defines the star system
-        uint32_t m_parentPndtplacement; // the 1..n based sequence position of the parent planet if this is a moon, zero if not a moon
-        uint32_t m_Pndtplacement; // the 1..n sequence positon of the planet e.g. 3rd rock from the sun, moons are in this sequence but after all the planets
+        uint32_t m_parentPndtLocalId; // the 1..n based sequence position of the parent planet if this is a moon, zero if not a moon
+        uint32_t m_PndtLocalId; // the 1..n sequence positon of the planet e.g. 3rd rock from the sun, moons are in this sequence but after all the planets
     };
     const PNDTGnamOv BADPNDTGNAMREC = PNDTGnamOv();
 
@@ -740,8 +742,8 @@ private:
     bool cloneStdt(std::vector<char> &newbuff, const STDTrec &ostdtRec, const BasicInfoRec &oBasicInfo);
 
     // Planet
-    void _updateCompressed(std::vector<char> &buff, PNDTrec& oRec);
-    bool _adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos);
+    size_t _updateCompressed(std::vector<char> &buff, PNDTrec& oRec);
+    bool _adjustPlanetLocalIds(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos);
     void _decompressPndt(PNDTrec& oRec, const std::vector<char>& newpndbuff);
     bool _refreshHdrSizesPndt(const PNDTrec& oRec, size_t decomsize);
     void _rebuildPndtRecFromDecompBuffer(PNDTrec& oRec);
@@ -756,6 +758,7 @@ public:
     // UX to CEsp data sharing
     bool getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoRec);
     bool getBasicInfo(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec);
+    bool getBasicInfo(formid_t iSystemId, size_t iParentPlanetID, BasicInfoRec& oBasicInfoRec);
     void getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<BasicInfoRec>& oBasicInfos, bool bExcludeblanks = false);
 
     // debugging and bad data

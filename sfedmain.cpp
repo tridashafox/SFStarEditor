@@ -1,4 +1,4 @@
-// Windows app part
+﻿// Windows app part
 #define NOMINMAX
 #include "framework.h"
 #include "sfed.h"
@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include <cmath>
+#include <regex>
 
 #pragma comment(lib, "comctl32.lib")  // Link against the common controls library
 #pragma comment(lib, "Shcore.lib")
@@ -51,6 +52,7 @@ void OutputStr(const WCHAR* pwchar);
 #define ID_TIMER 1
 #define TIMER_INTERVAL 30000 // 30 seconds
 #define MAX_REC_NAME_LENGTH (48) // Must not be bigger than 254. But larger then this does not make sense for displayed names.
+#define LISTMARGIN (15)
 
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
@@ -116,6 +118,21 @@ std::wstring wstrfnTrunc(std::wstring wfn, int iTruncate=36)
 std::string strfnTrunc(std::string sfn, int iTruncate=36)
 {
     return sfn.size() > iTruncate ? std::string("...") + sfn.substr(sfn.size() - iTruncate) : sfn;
+}
+
+
+std::string getCurrentTime()
+{
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::tm bt;
+    localtime_s(&bt, &in_time_t);  // For MSVC
+
+    std::ostringstream oss;
+    oss << std::put_time(&bt, "%H:%M:%S");  // hh:mm:ss
+    oss << '.' << std::setfill('0') << std::setw(3) << ms.count(); // .ms
+    return oss.str();
 }
 
 // Make a the source planet file name for the biom file so we can use it to extract the file for a new planet
@@ -212,8 +229,10 @@ void OutputStr(const std::string& strOut)
     if (!hTextOutWnd)
         return;
 
+    std::string str = getCurrentTime() + " " + strOut;
+
     // Add the string to the list box
-    SendMessageA(hTextOutWnd, LB_ADDSTRING, 0, (LPARAM)strOut.c_str());
+    SendMessageA(hTextOutWnd, LB_ADDSTRING, 0, (LPARAM)str.c_str());
 
     // Check if the count exceeds the maximum
     LRESULT count = SendMessage(hTextOutWnd, LB_GETCOUNT, 0, 0);
@@ -227,6 +246,28 @@ void OutputStr(const std::string& strOut)
 
     RedrawWindow(hTextOutWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
 }
+
+void OutputStrW(const WCHAR* pwchar)
+{
+    if (!hTextOutWnd)
+        return;
+
+    // Add the string to the list box
+    SendMessage(hTextOutWnd, LB_ADDSTRING, 0, (LPARAM)pwchar);
+
+    // Check if the count exceeds the maximum
+    LRESULT count = SendMessage(hTextOutWnd, LB_GETCOUNT, 0, 0);
+    if (count > MAX_LISTITEMS)
+        SendMessage(hTextOutWnd, LB_DELETESTRING, 0, 0);
+
+    // Scroll to the last item
+    count = (int)SendMessage(hTextOutWnd, LB_GETCOUNT, 0, 0);
+    if (count > 0)
+        SendMessage(hTextOutWnd, LB_SETTOPINDEX, count - 1, 0);
+
+    RedrawWindow(hTextOutWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+}
+
 
 bool IsNameUnique(CEsp* pEsp, CEsp::ESPRECTYPE eType, const std::string& strName)
 {
@@ -246,6 +287,27 @@ bool IsNameUnique(CEsp* pEsp, CEsp::ESPRECTYPE eType, const std::string& strName
 
     return nameSet.find(toLowerCase(strName)) == nameSet.end();
 }
+
+// Function to update the "Save" and "Save As" menu items with the filename
+void UpdateMenuWithFilename(HWND hWnd, const std::wstring& fullname)
+{
+    HMENU hMenu = GetMenu(hWnd);
+    if (!hMenu)
+        return;
+
+    // Extract just the filename
+    std::wstring filename = std::filesystem::path(fullname).filename().wstring();
+
+    UINT idSave = ID_FILE_SAVE;    
+    UINT idSaveAs = ID_FILE_SAVEAS;
+    std::wstring saveMenuText = L"Save " + filename;
+    std::wstring saveAsMenuText = L"Save " + filename + L" as...";
+
+    ModifyMenu(hMenu, idSave, MF_BYCOMMAND | MF_STRING, idSave, saveMenuText.c_str());
+    ModifyMenu(hMenu, idSaveAs, MF_BYCOMMAND | MF_STRING, idSaveAs, saveAsMenuText.c_str());
+    DrawMenuBar(hWnd);
+}
+
 
 bool ValidateDestFilename(HWND hWnd, const WCHAR* szFileName)
 {
@@ -304,7 +366,7 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     std::string strNumST = std::to_string(pEsp->getNum(CEsp::eESP_STDT));
     std::string strNumPN = std::to_string(pEsp->getNum(CEsp::eESP_PNDT));
     std::string strNumLC = std::to_string(pEsp->getNum(CEsp::eESP_LCTN));
-    std::string str = std::string("Found ") + strNumST + " star(s), " + strNumPN + " planet(s) and " + strNumLC + " locations.";
+    std::string str = wstrtostr(fn) + ": Found " + strNumST + " star(s), " + strNumPN + " planet(s) and " + strNumLC + " locations.";
     if (!pEsp->isESM()) str += " Uses Master file " + pEsp->getMasterFname() + ".";
     OutputStr(str);
     std::vector<std::string> oOutputs;
@@ -312,7 +374,7 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     for (const std::string& oStr : oOutputs)
         OutputStr(oStr);
     if (pEsp->getMissingBfceCount())
-        OutputStr("Found " + std::to_string(pEsp->getMissingBfceCount()) + " planet(s) or star(s) with missing end markers for BFCE block. They were not marked as bad.");
+        OutputStr(wstrtostr(fn) + ": Found " + std::to_string(pEsp->getMissingBfceCount()) + " planet(s) or star(s) with missing end markers for BFCE block. They were not marked as bad.");
 
     return true;
 }
@@ -549,7 +611,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             
                 // Create a read-only multiline edit control to act as the text display area
                 if (!(hTextOutWnd = CreateWindowEx(NULL, WC_LISTBOX, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL, 
-                    0, 0, 0, 0, hWnd, nullptr, hInst, NULL)))
+                    LISTMARGIN, LISTMARGIN/2, 0, 0, hWnd, nullptr, hInst, NULL)))
                 {
                     MessageBox(hWnd, L"Failed to create text control.", L"Error", MB_OK | MB_ICONERROR);
                     return -1;
@@ -561,7 +623,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
 
                 SetTimer(hWnd, ID_TIMER, TIMER_INTERVAL, NULL); // Set the timer for 30 seconds
-                OutputStr("Starfield star system creator. EXPERIMENTAL! Version 0.1");
+                OutputStrW(L"Starfield star system creator. Version 0.1");
+                OutputStrW(L"  * EXPERIMENTAL *");
+                OutputStrW(L"* USE AT OWN RISK *");
+                OutputStrW(L" ");
 
                 if (IsDebuggerPresent()) // Shortcut while testing
                 {
@@ -569,6 +634,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     std::wstring wstrDst = L"D:\\SteamLibrary\\steamapps\\common\\Starfield\\Data\\test.esp";
                     LoadESP(pEspSrc, wstrSrc.c_str());
                     LoadESP(pEspDst, wstrDst.c_str());
+                    UpdateStatusBar();
+                    UpdateMenuWithFilename(hWnd, wstrDst.c_str());
                     
                     /* slow op to check all bioms can be found in archive - debugging
                     std::vector<std::string> strErrs;
@@ -598,7 +665,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 GetWindowRect(hStatusBar, &rcStatus);
                 int statusHeight = rcStatus.bottom - rcStatus.top;
                 SendMessage(hStatusBar, WM_SIZE, 0, 0);
-                SetWindowPos(hTextOutWnd, nullptr, 0, 0, rcClient.right, rcClient.bottom - statusHeight, SWP_NOZORDER);
+                SetWindowPos(hTextOutWnd, nullptr, LISTMARGIN, LISTMARGIN/2, rcClient.right, rcClient.bottom - statusHeight, SWP_NOZORDER);
             }
             break;
 
@@ -653,6 +720,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 {
                                     LoadESP(pEspDst, wszFileName);
                                     UpdateStatusBar();
+                                    UpdateMenuWithFilename(hWnd, wszFileName);
                                 }
                             }
                         }
@@ -828,6 +896,13 @@ bool GetEditItemText(HWND hDlg, int id, std::string & strName)
     return true;
 }
 
+bool IsValidNameString(const std::string& str) 
+{
+    // Regular expression to match only letters, numbers, spaces, and hyphens
+    std::regex pattern("^[A-Za-z0-9\\s-]+$");
+    return std::regex_match(str, pattern);
+}
+
 bool GetAndValidateNamefromDlg(HWND hDlg, int id, int idFormName, std::string &strName, std::string &strFormName, std::string &strErrMsg)
 {
     strName.clear();
@@ -846,27 +921,29 @@ bool GetAndValidateNamefromDlg(HWND hDlg, int id, int idFormName, std::string &s
     if (!GetEditItemText(hDlg, idFormName, strFormName))
         return false;
 
+    if (!IsValidNameString(editText))
+    {
+        strErrMsg = std::string("The name you provided contains invalid characters. Only A-Z, a-z, 0-9, space and dash are accepted.");
+        return false;
+    }
+
+    if (!IsNameUnique(pEspDst, CEsp::eESP_STDT, editText) || !IsNameUnique(pEspDst, CEsp::eESP_PNDT, editText))
+    {
+        strErrMsg = std::string("The name you provided already exists as a star, planet or moon in the destination data.");
+        return false;
+    }
+
 
     strErrMsg.clear();
     if (editText.size() <= 1)
     {
-        strErrMsg = std::string("Star name is too short.");
+        strErrMsg = std::string("Name is too short.");
             return false;
     }
     else
     if (editText.size() >= 4) 
     {
         std::string last4 = editText.substr(editText.size() - 4);
-
-        // Me thinks I worry to much or about the wrong things
-
-        if (editText.find("Star") != std::string::npos)
-        {
-            strErrMsg = std::string(editText.size()==4 ? "The Name is Star. This is not a good idea." : 
-                "Name includes the postfix 'Star'. This should not used as it will be automatically added "
-                "onto the form name for the star when it is created.");
-            return false;
-        }
 
         if (CheckIfHasFourConsecutiveUppercase(editText))
         {
@@ -1269,7 +1346,7 @@ INT_PTR CALLBACK CreateStarDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                     }
 
                     CEsp::BasicInfoRec oBasicInfo(CEsp::eESP_STDT, strStarFormName.c_str(), strStarName.c_str(), false, false, 
-                        ofPos, NO_RECIDX, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT, iSystemPlayerLevel, iSystemPlayerLevelMax, NO_FACTION);
+                        ofPos, NO_RECIDX, NO_ORBIT, NO_PLANETPOS, NO_PARENTLOCALID, iSystemPlayerLevel, iSystemPlayerLevelMax, NO_FACTION);
                     if (!pEspDst->makestar(pEspSrc, iIdxStar, oBasicInfo, strErrMsg))
                     {
                         std::string msg = std::string("Star creation failed: ") + strErrMsg;
@@ -1306,11 +1383,11 @@ bool _outputnewplanet(CEsp::formid_t NewformId)
     // display star system planet position info after creation
     std::string strMsg;
     pEspDst->dumpPlanetPositions(oNew.m_iPrimaryIdx, strMsg);
-    OutputStr("Planet positions after creation: " + strMsg);
+    OutputStr("Star system LocalIds after creation: " + strMsg);
 
     // display new planet details
     strMsg = "Planet " + std::string(oNew.m_pName) + " was created in destination star system "
-        + pEspDst->getAnam(CEsp::eESP_STDT, oNew.m_iPrimaryIdx) + " at placement " + std::to_string(oNew.m_iPlanetPlacement) + " and parent placement of " + std::to_string(oNew.m_iParentPlacement) +
+        + pEspDst->getAnam(CEsp::eESP_STDT, oNew.m_iPrimaryIdx) + " LocalId: " + std::to_string(oNew.m_iPlanetlocalId) + " Parent LocalId: " + std::to_string(oNew.m_iParentlocalId) +
         +" with player level min/max " + std::to_string(oNew.m_iSysPlayerLvl) + "-" + std::to_string(oNew.m_iSysPlayerLvlMax)
         + " faction " + std::to_string(oNew.m_iFaction) + ".";
     OutputStr(strMsg);
@@ -1343,7 +1420,6 @@ bool _dlgMakePlanet(HWND hDlg)
         return false;
     }
 
-
     HWND hComboDestStar = GetDlgItem(hDlg, IDC_COMBO4);
     selectedIndex = SendMessage(hComboDestStar, CB_GETCURSEL, 0, 0);
     if (selectedIndex == CB_ERR)
@@ -1355,11 +1431,11 @@ bool _dlgMakePlanet(HWND hDlg)
 
     // get the planet positon
     HWND hComboPltPos = GetDlgItem(hDlg, IDC_COMBOPLNNUM);
-    size_t iPlanetPlacement = (size_t)SendMessage(hComboPltPos, CB_GETCURSEL, 0, 0);
-    if (iPlanetPlacement == (int)SendMessage(hComboPltPos, CB_GETCOUNT, 0, 0) - 1)
-        iPlanetPlacement = LASTPLANETPOSITION; // set it 'last' so it goes after everything
+    size_t iPlanetPos = (size_t)SendMessage(hComboPltPos, CB_GETCURSEL, 0, 0);
+    if (iPlanetPos == (int)SendMessage(hComboPltPos, CB_GETCOUNT, 0, 0) - 1)
+        iPlanetPos = LASTPLANETPOSITION; // set it 'last' so it goes after everything
     else
-        iPlanetPlacement++; // placement positions go from 1 to n.
+        iPlanetPos++; // Positions go from 1 to n.
 
     // TODO: allow path to be specified in the dialog
     // Make a biom file for the planet if required
@@ -1387,10 +1463,12 @@ bool _dlgMakePlanet(HWND hDlg)
     CEsp::BasicInfoRec oDstBasicInfoPrimaryStar;
     pEspDst->getBasicInfo(CEsp::eESP_STDT, iIdxPrimary, oDstBasicInfoPrimaryStar);
 
+    // TODO handle iPlanetPos setting  by adjusting orbitals will need to be param to makeplanet
+    
     // New planet record
     CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strPlanetFormName.c_str(), strPlanetName.c_str(),
         false, true,
-        NO_FPOS, NO_RECIDX, iIdxPrimary, iPlanetPlacement, NO_PARENTPLACEMENT,
+        NO_FPOS, NO_RECIDX, iIdxPrimary, NO_LOCALID, NO_PARENTLOCALID,
         oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
 
     // Make a planet
@@ -1415,9 +1493,12 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
         case WM_INITDIALOG:
             if (pEspSrc && pEspDst)
             {
-                // Hide moons by default
+                // Dont include moons and landable from list by default,
                 CheckDlgButton(hDlg, IDC_CHECK2, BST_CHECKED); 
                 CheckDlgButton(hDlg,  IDC_CHECKUNLAND, BST_CHECKED); 
+
+                // Hide moons check box for now, because if a moon is selected as a src planet then some fix ups are required in the data, e.g. CNAM body type
+                ShowWindow(GetDlgItem(hDlg, IDC_CHECK2), SW_HIDE);
 
                 // Populate Combo with src stars
                 std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
@@ -1534,12 +1615,15 @@ bool _dlgMakeMoon(HWND hDlg)
 
     // get the names
     std::string strMoonName;
-    GetEditItemText(hDlg, IDC_EDIT_PNNAME, strMoonName);
     std::string strMoonFormName;
-    GetEditItemText(hDlg, IDC_EDIT_PNNAMEFORM, strMoonFormName);
+    std::string strErrMsg;
 
-    // Set the moon parent planet
-    // TODO:
+    if (!GetAndValidateNamefromDlg(hDlg, IDC_EDIT_PNNAME, IDC_EDIT_PNNAMEFORM, strMoonName, strMoonFormName, strErrMsg))
+    {
+        std::string msg = std::string("The name of the moon has an error: ") + strErrMsg;
+        MessageBoxA(hDlg, msg.c_str(), "Warning", MB_OK | MB_ICONWARNING);
+        return false;
+    }
 
     // get the destination planet idx
     HWND hComboDestPlanet = GetDlgItem(hDlg, IDC_COMBO4);
@@ -1555,7 +1639,6 @@ bool _dlgMakeMoon(HWND hDlg)
     CEsp::BasicInfoRec oSrcBasicInfoMoon;
     pEspSrc->getBasicInfo(CEsp::eESP_PNDT, iSrcIdxMoon, oSrcBasicInfoMoon);
 
-    std::string strErrMsg;
     if (oSrcBasicInfoMoon.m_bIsLandable)
     {
         std::wstring wstrNewFileName;
@@ -1583,7 +1666,7 @@ bool _dlgMakeMoon(HWND hDlg)
     // New planet record
     CEsp::BasicInfoRec oDstBasicInfoNewPlanet(CEsp::eESP_PNDT, strMoonFormName.c_str(), strMoonName.c_str(),
         false, true,
-        NO_FPOS, NO_RECIDX, oDstBasicInfoDestPlanet.m_iPrimaryIdx, LASTPLANETPOSITION, oDstBasicInfoDestPlanet.m_iPlanetPlacement,
+        NO_FPOS, NO_RECIDX, oDstBasicInfoDestPlanet.m_iPrimaryIdx, LASTPLANETPOSITION, oDstBasicInfoDestPlanet.m_iPlanetlocalId,
         oDstBasicInfoPrimaryStar.m_iSysPlayerLvl, oDstBasicInfoPrimaryStar.m_iSysPlayerLvlMax, oDstBasicInfoPrimaryStar.m_iFaction);
 
     // Make a planet
@@ -1679,7 +1762,7 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
                 if (selectedIndex != CB_ERR)
                     iIdxPlanet = (size_t)SendMessage((HWND)lParam, CB_GETITEMDATA, (WPARAM)selectedIndex, 0);
 
-                // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet placement for the planet
+                // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet LocalId for the planet
                 std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
                 pEspDst->getMoons(iIdxPlanet, oBasicInfoRecs);
 
@@ -1723,6 +1806,7 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 
 
 // TODO: more name validation to prevent unwanted chars
+// TODO: clean up that nasty compression code in Adjust planets
 // TODO  allow for a custom moon name (would need to check if unique)
 // TODO: test moons
 // TODO: show selected star/planet info in dialogs, save and save as show name
@@ -1732,6 +1816,9 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
 // TODO: extend dialog to allow for more editing of other records of data
 // TODO: support editing of biom data
 // TODO: allow 3d view of star/planet
+// TODO: Allow planets as moons, moons as planets
+// TODO: Provide star system generation 
 // TODO: support adding POI
+// TODO: replace current persistence with sertialization model and add in a class model, don't allow any indexs into pndt/stdt/lctn from UX use formids
 
 

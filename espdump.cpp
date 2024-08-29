@@ -231,11 +231,11 @@ void CEsp::dumpPlanetPositions(size_t iStarIdx, std::string& strOut)
     BasicInfoRec oBasicInfoNewPlanet;
     getBasicInfoRecsOrbitingPrimary(CEsp::eESP_STDT, iStarIdx, oBasc, true, true);
     std::sort(oBasc.begin(), oBasc.end(),
-        [](const CEsp::BasicInfoRec& a, const CEsp::BasicInfoRec& b) { return a.m_iPlanetPlacement < b.m_iPlanetPlacement; });
+        [](const CEsp::BasicInfoRec& a, const CEsp::BasicInfoRec& b) { return a.m_iPlanetlocalId < b.m_iPlanetlocalId; });
     std::string strdmpout = "(";
     for (size_t i = 0; i < oBasc.size(); ++i)
         strdmpout += std::string(oBasc[i].m_pAName) + ": "
-        + std::to_string(oBasc[i].m_iPlanetPlacement) + (oBasc[i].m_bIsMoon ? "m-" + std::to_string(oBasc[i].m_iParentPlacement) : "p")
+        + std::to_string(oBasc[i].m_iPlanetlocalId) + (oBasc[i].m_bIsMoon ? "m-" + std::to_string(oBasc[i].m_iParentlocalId) : "p")
         + std::string((i + 1 < oBasc.size()) ? ", " : "");
 
     strOut = strdmpout + ")";

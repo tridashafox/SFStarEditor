@@ -368,7 +368,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicStarRec(const size_t iIdx)
         (const char*)&m_stdts[iIdx].m_pEdid->m_name,
         (const char*)&m_stdts[iIdx].m_pAnam->m_aname,
         false, false,
-        m_stdts[iIdx].getfPos(), iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT,
+        m_stdts[iIdx].getfPos(), iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTLOCALID,
         iPlayerLvl, iPlayerLvlMax, iFaction);
 }
 
@@ -382,7 +382,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicPlanetRec(const size_t iIdx)
     fPos oSystemPosition;
     size_t iPrimaryIdx = findPrimaryIdx(iIdx, oSystemPosition);
 
-    bool bisMoon = m_pndts[iIdx].m_pGnam->m_parentPndtplacement; // Planet as a primary planet id it is a moom
+    bool bisMoon = m_pndts[iIdx].m_pGnam->m_parentPndtLocalId; // Planet as a primary planet id it is a moom
     bool bIsLandable = m_pndts[iIdx].m_oPpbds.size() != 0; // Planet has  biom records, it is landable
 
     // Find the Primary star of the planet if it exists and not a moon
@@ -393,7 +393,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicPlanetRec(const size_t iIdx)
         (const char*)&m_pndts[iIdx].m_pEdid->m_name,
         (const char*)&m_pndts[iIdx].m_pAnam->m_aname,
         bisMoon, bIsLandable,
-        oSystemPosition, iIdx, iPrimaryIdx, m_pndts[iIdx].m_pGnam->m_Pndtplacement, m_pndts[iIdx].m_pGnam->m_parentPndtplacement,
+        oSystemPosition, iIdx, iPrimaryIdx, m_pndts[iIdx].m_pGnam->m_PndtLocalId, m_pndts[iIdx].m_pGnam->m_parentPndtLocalId,
         iPlayerLvl, iPlayerLvlMax, iFaction);
 }
 
@@ -406,13 +406,33 @@ CEsp::BasicInfoRec CEsp::_makeBasicLocRec(const size_t iIdx)
         (const char*)&m_lctns[iIdx].m_pEdid->m_name,
         (const char*)&m_lctns[iIdx].m_pAnam->m_aname,
         false, false,
-        NO_FPOS, iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTPLACEMENT,
+        NO_FPOS, iIdx, NO_ORBIT, NO_PLANETPOS, NO_PARENTLOCALID,
         m_lctns[iIdx].m_pData->m_playerLvl, m_lctns[iIdx].m_pData->m_playerLvlMax, m_lctns[iIdx].m_pData->m_faction);
 }
 
 
 // Used to provide basic info to be used in the UX
 // provides info for one record of type eType and positon iIdx in the collection
+
+bool CEsp::getBasicInfo(formid_t iSystemId, size_t iParentPlanetID, BasicInfoRec& oBasicInfoRec)
+{
+    if (!iSystemId || !iParentPlanetID || iParentPlanetID==NO_PARENTLOCALID)
+        return false;
+
+
+    auto it = m_SystemIDMap.find(iSystemId);
+    if (it == m_SystemIDMap.end())
+        return false;
+
+    std::vector<GENrec>& genRecords = it->second;
+    for (const GENrec& oGen : genRecords)
+    {
+        if (oGen.m_eType == eESP_PNDT && m_pndts[oGen.m_iIdx].m_pGnam && m_pndts[oGen.m_iIdx].m_pGnam->m_PndtLocalId == iParentPlanetID)
+            return getBasicInfo(oGen.m_eType, oGen.m_iIdx, oBasicInfoRec);
+    }
+
+    return false;
+}
 
 bool CEsp::getBasicInfo(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec)
 {
@@ -462,7 +482,7 @@ bool CEsp::getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoR
 
 void CEsp::getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos)
 {
-    // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet placement for the planet
+    // moon name will be planet name -{a,b,c,d} etc. where a-z is the next available planet LocalId for the planet
 
     std::vector<BasicInfoRec> oBasicInfosSystem;
     size_t iPrimaryIdx = findPrimaryIdx(iPlanetIdx);
@@ -470,12 +490,12 @@ void CEsp::getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos)
 
     // find moons around specified planet
     for (auto& oBasicInfo : oBasicInfosSystem)
-        if (m_pndts[oBasicInfo.m_iIdx].m_pGnam->m_parentPndtplacement == m_pndts[iPlanetIdx].m_pGnam->m_Pndtplacement)
+        if (m_pndts[oBasicInfo.m_iIdx].m_pGnam->m_parentPndtLocalId == m_pndts[iPlanetIdx].m_pGnam->m_PndtLocalId)
             oBasicInfos.push_back(oBasicInfo);
 
-    // sort the moons by their placement in the system (there is no placement with in a planet)
+    // sort the moons by their LocalId in the system (planet has a parent local id of zero - the star)
     std::sort(oBasicInfos.begin(), oBasicInfos.end(),
-        [](const BasicInfoRec& a, const BasicInfoRec& b) {  return a.m_iPlanetPlacement < b.m_iPlanetPlacement; });
+        [](const BasicInfoRec& a, const BasicInfoRec& b) {  return a.m_iPlanetlocalId < b.m_iPlanetlocalId; });
 }
 
 // Get all the basic info records for the planets oribiting the passed Primary
@@ -494,7 +514,7 @@ void CEsp::getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, st
     for (const GENrec& oRec : genRecords)
         if (oRec.m_eType == eESP_PNDT) // Find planets in same star system
         {
-            bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_parentPndtplacement != 0;
+            bool bIsMoon = m_pndts[oRec.m_iIdx].m_pGnam->m_parentPndtLocalId != 0;
             bool bIsLandable = m_pndts[oRec.m_iIdx].m_oPpbds.size() != 0;
 
             switch (eType)

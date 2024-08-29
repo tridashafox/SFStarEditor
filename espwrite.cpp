@@ -89,34 +89,6 @@ void CEsp::_deleterec(std::vector<char>& newbuff, const char* removestart, const
         newbuff.erase(start, end);
 }
 
-// insert a string into the block of memory over existing string 
-/*
-void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
-{
-    if (!newbuff.size() || !pDstInsertPosition || !pNewbuff || !iSizeNewBuffer) 
-        return;
-
-    {   // points inside {} will be invalid after insert/erase operations below
-        size_t newSize = iSizeNewBuffer; 
-
-        // Calculate the position of the destination name within the buffer
-        ptrdiff_t offset = pDstInsertPosition - newbuff.data();
-
-        // Resize the buffer to accommodate the new name
-        if (newSize != oldSize)
-        {
-            // If the new name is larger, expand the buffer
-            if (newSize > oldSize)
-                newbuff.insert(newbuff.begin() + offset + oldSize, newSize - oldSize, 0);
-            else
-                newbuff.erase(newbuff.begin() + offset + newSize, newbuff.begin() + offset + oldSize);
-        }
-
-        // Copy the new name into the buffer at the correct location
-        memcpy(newbuff.data() + offset, pNewbuff, newSize);
-    }
-} */
-
 void CEsp::_insertbuff(std::vector<char>& newbuff, char* pDstInsertPosition, size_t oldSize, const char* pNewbuff, size_t iSizeNewBuffer)
 {
     if (newbuff.empty() || !pDstInsertPosition || !pNewbuff || iSizeNewBuffer == 0)
@@ -182,20 +154,22 @@ void CEsp::_insertname(std::vector<char>& newbuff, char* pDstName, uint16_t* pNa
     }
 } 
 
-// Update the compressed buffer from the decompressed one
-void CEsp::_updateCompressed(std::vector<char> &buff, PNDTrec& oRec)
+// Update the compressed buffer from the decompressed one, returns change in compressed size
+size_t CEsp::_updateCompressed(std::vector<char> &buff, PNDTrec& oRec)
 {
 
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer
+    size_t oldcompsize = oRec.m_compdatasize;
     std::vector<char> newcompressbuffer;
     if (!compress_data(oRec.m_decompdata.data(), oRec.m_pHdr->m_decompsize, newcompressbuffer))
-        return;
+        return 0;
 
     PNDTHdrOv* pMutableHdr = makeMutable(oRec.m_pHdr);
     pMutableHdr->m_size = static_cast<uint32_t>(newcompressbuffer.size() + sizeof(uint32_t));
 
     _insertbuff(buff, (char*)oRec.m_pcompdata, oRec.m_compdatasize, newcompressbuffer.data(), newcompressbuffer.size());
     oRec.m_compdatasize = static_cast<uint32_t>(newcompressbuffer.size());
+    return  oRec.m_compdatasize - oldcompsize;
 
 }
 
@@ -537,7 +511,7 @@ bool CEsp::makestar(const CEsp *pSrc, size_t iSrcStarIdx, const BasicInfoRec &oB
         MKFAIL("No source provided to create the star from.");
 
     // Check values make sense, since we will be casting these down to uint8
-    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPlacement >0xFF)
+    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetlocalId >0xFF)
         MKFAIL("Could not create star as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
@@ -605,6 +579,8 @@ bool CEsp::createLocPlanet(const std::vector<char>& newPlanetbuff, const BasicIn
     if (!oRec.m_pGnam || !oRec.m_pAnam || !oRec.m_pHdr)
         return false; // Did not build fully the oRec from the decompressed buffer 
 
+    bool bIsMoon = oRec.m_pGnam->m_parentPndtLocalId != 0;
+
     // get info for location creation
     formid_t starId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pHdr->m_formid;
     std::string strStarName = (char*)&(m_stdts[oBasicInfo.m_iPrimaryIdx].m_pAnam->m_aname); 
@@ -622,30 +598,48 @@ bool CEsp::createLocPlanet(const std::vector<char>& newPlanetbuff, const BasicIn
 
     const char* pAname = reinterpret_cast<const char*>(&oRec.m_pAnam->m_aname);
     std::string strPlanetName = std::string(pAname);
-    std::string strLocName =  "S" + strStarName + "_P" + strPlanetName;
+    std::string strLocName;
+    formid_t planetLocId = 0;
 
     // TODO set the corect keywords
     uint32_t keywordsPlanet[] = { KW_LocTypePlanet,  KW_LocTypeMajorOribital }; 
+    uint32_t keywordsMoon[] = { KW_LocTypeMoon,  KW_LocTypeMajorOribital }; 
     uint32_t keywordsOrbit[] = { KW_LoctTypeOrbit }; 
     uint32_t keywordsSurface[] = { KW_LoctTypeSurface }; 
 
-    // Planet location record
-    formid_t planetLocId = 0;
-    if (!(planetLocId = _createLoc(newLocbuff, strLocName.c_str(), strPlanetName.c_str(), StarLocId, systemId,
-        &keywordsPlanet[0], sizeof(keywordsPlanet) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement)))
-        return false;
+    if (bIsMoon)
+    {
+        BasicInfoRec oParentPlanet;
+        if (!getBasicInfo(systemId, oBasicInfo.m_iParentlocalId, oParentPlanet))
+            return false; // could not find parent planet of moon
+
+        // Moon location record
+        strLocName =  "S" + strStarName + "_P" +  std::string(oParentPlanet.m_pAName) + "_M" + strPlanetName;
+        if (!(planetLocId = _createLoc(newLocbuff, strLocName.c_str(), strPlanetName.c_str(), StarLocId, systemId,
+            &keywordsMoon[0], sizeof(keywordsMoon) / sizeof(uint32_t),
+            oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetlocalId)))
+            return false;
+    }
+    else
+    {
+        // Planet location record
+        strLocName =  "S" + strStarName + "_P" + strPlanetName;
+        if (!(planetLocId = _createLoc(newLocbuff, strLocName.c_str(), strPlanetName.c_str(), StarLocId, systemId,
+            &keywordsPlanet[0], sizeof(keywordsPlanet) / sizeof(uint32_t),
+            oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetlocalId)))
+            return false;
+    }
 
     // Create orbit reference
     if (!_createLoc(newLocbuff, std::string(strLocName + "_Orbit").c_str(), strPlanetName.c_str(), planetLocId, systemId,
         &keywordsOrbit[0], sizeof(keywordsOrbit) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement))
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetlocalId))
         return false;
 
     // Create surface reference
     if (!_createLoc(newLocbuff, std::string(strLocName + "_Surface").c_str(), strPlanetName.c_str(), planetLocId, systemId,
         &keywordsSurface[0], sizeof(keywordsSurface) / sizeof(uint32_t),
-        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetPlacement))
+        oBasicInfo.m_iFaction, oBasicInfo.m_iSysPlayerLvl, oBasicInfo.m_iSysPlayerLvlMax, oBasicInfo.m_iPlanetlocalId))
         return false;
 
     return true;
@@ -678,12 +672,10 @@ void CEsp::_rebuildPndtRecFromDecompBuffer(PNDTrec &oRec)
     _dopndt_op_findparts(oRec, searchPtr, endPtr);
 }
 
-// adjust planet positions so they are in sequence and adjust input iPlanetPos
-bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos)
+// adjust the local ids in a star system so to ensure they are valid
+// puts the ids in sequence with moons at the end of the sequence and updates records in m_buffer
+bool CEsp::_adjustPlanetLocalIds(const size_t iPrimaryIdx, const size_t iNewPlanetIdx, const size_t iPlanetPos)
 {
-    // TODO: moons... Changing any plant positions will mean Moons need to be fixed up as 
-    // m_parentPndtplacement is from 1 to n, and is the position of the planet where the moon is
-
     std::vector<BasicInfoRec> oBasicInfoRecs;
     getBasicInfoRecsOrbitingPrimary(eESP_STDT, iPrimaryIdx, oBasicInfoRecs, true, true);
 
@@ -691,19 +683,19 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
     BasicInfoRec oNewPlanet;
     getBasicInfo(eESP_PNDT, iNewPlanetIdx, oNewPlanet);
         
-    // Remove iNewPlanetIdx from the list so we don't include in the processing, we want to insert it into the correct place
+    // Remove iNewPlanetIdx from the list so we don't include in the processing
     oBasicInfoRecs.erase(std::remove_if(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
         [iNewPlanetIdx](const BasicInfoRec& rec) { return rec.m_iIdx==iNewPlanetIdx; }),  oBasicInfoRecs.end() );
     
-    // sort by placement, but put moons at the end of the list
+    // sort by LocalId, but put moons at the end of the list
     std::sort(oBasicInfoRecs.begin(), oBasicInfoRecs.end(),
         [](const BasicInfoRec& a, const BasicInfoRec& b) {
             // If one is a moon and the other is not, the non-moon should come first
             if (a.m_bIsMoon != b.m_bIsMoon) {
                 return !a.m_bIsMoon;
             }
-            // If both are either moons or non-moons, sort by planet placement
-            return a.m_iPlanetPlacement < b.m_iPlanetPlacement;
+            // If both are either moons or non-moons, sort by planet LocalId
+            return a.m_iPlanetlocalId < b.m_iPlanetlocalId;
         });
 
     // Reassign sequential positions to make sure no gaps 
@@ -713,78 +705,61 @@ bool CEsp::_adjustPlanetPositions(const size_t iPrimaryIdx, const size_t iNewPla
         if (idxStartofMoons == NO_ORBIT && oBasicInfoRecs[i].m_bIsMoon)
             idxStartofMoons = i;
 
-        oBasicInfoRecs[i].m_iPlanetPlacement = i + 1;  // Assign positions 1, 2, ...
+        oBasicInfoRecs[i].m_iPlanetlocalId = i + 1;  // Assign positions 1, 2, ...
     }
 
     // if the new position is larger than the last, just make it the last non moon
     size_t iNewPos = iPlanetPos;
     if (iPlanetPos > oBasicInfoRecs.size())
     {
-        if (idxStartofMoons == NO_ORBIT || oNewPlanet.m_iParentPlacement)
-            iNewPos = oBasicInfoRecs.size()+1; // no moons or is a moon so set placement at end
+        if (idxStartofMoons == NO_ORBIT || oNewPlanet.m_iParentlocalId)
+            iNewPos = oBasicInfoRecs.size()+1; // no moons or is a moon so set LocalId at end
         else
-            iNewPos = oBasicInfoRecs[idxStartofMoons].m_iPlanetPlacement; // insert new (n) at where the moons start e.g at 3m if 1p,2p,3m,4m - 1p,2p,3n,4m,5m
+            iNewPos = oBasicInfoRecs[idxStartofMoons].m_iPlanetlocalId; // insert new (n) at where the moons start e.g at 3m if 1p,2p,3m,4m - 1p,2p,3n,4m,5m
     }
 
     // Insert the new planet by shifting ones at or after the specified position back
     for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
-        if (oBasicInfo.m_iPlanetPlacement >= iNewPos)
-            oBasicInfo.m_iPlanetPlacement += 1;
+        if (oBasicInfo.m_iPlanetlocalId >= iNewPos)
+            oBasicInfo.m_iPlanetlocalId += 1;
 
-    // write the new positions back into pndt records
     struct SafeStore {
         formid_t m_formid;
         size_t m_newplace;
         SafeStore(formid_t formid, size_t newplace) : m_formid(formid), m_newplace(newplace) { }
     };
-    std::vector<SafeStore> oUpdates;
 
+    // make a transaction set of what we want to change so can be done safely in one operation
+    std::vector<SafeStore> oUpdates;
     for (BasicInfoRec& oBasicInfo : oBasicInfoRecs)
-    {
-        //const PNDTGnamOv* pGnam = m_pndts[oBasicInfo.m_iIdx].m_pGnam;
-       // PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-       // pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
-        oUpdates.push_back(SafeStore(m_pndts[oBasicInfo.m_iIdx].m_pHdr->m_formid, oBasicInfo.m_iPlanetPlacement));
-        // recompress the record and insert it
-    }
+        oUpdates.push_back(SafeStore(m_pndts[oBasicInfo.m_iIdx].m_pHdr->m_formid, oBasicInfo.m_iPlanetlocalId));
 
     if (iNewPos!=iPlanetPos)
-    {
-       // const PNDTGnamOv* pGnam = m_pndts[iNewPlanetIdx].m_pGnam;
-       // PNDTGnamOv * pMutableGnam = makeMutable(pGnam); 
-       // pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(iNewPos);
         oUpdates.push_back(SafeStore(m_pndts[iNewPlanetIdx].m_pHdr->m_formid, iNewPos));
-    }
 
     // Ouch - ptrs for planets will point into the decompress buffer which is not part of the m_buffer
-    // so not an issue updating them except this will do nothing unless the data is recompressed and put back into m_buffer
-    // do this will break all ptrs in the Esp, so we need to be careful. doing updates a single rec is painful.
-    // For no we have to use formids to search into the data after each rebuild so we can do multiple updates, compresses and reloads
-    // TODO: change approach serialise data. 
+    // changes to to decompressed buffer need to be compressed andput back into m_buffer and grp hdr size adjusted
+    // TODO: revisit when Planet Edit is implemented as this will need a general updating of planet data not just the LocalIds
     std::string strErrReload;
     _loadfrombuffer(strErrReload); // after call anything in m_pndts is now reloaded 
     for (SafeStore& oSafe : oUpdates)
     {
         BasicInfoRec oBasicRec;
         if (!getBasicInfo(eESP_PNDT, oSafe.m_formid, oBasicRec))
-            return false;
+            return false; // Not good
+
         const PNDTGnamOv* pGnam = m_pndts[oBasicRec.m_iIdx].m_pGnam;
         PNDTGnamOv * pMutableGnam = makeMutable(pGnam);
-        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oSafe.m_newplace);
+        pMutableGnam->m_PndtLocalId = static_cast<uint32_t>(oSafe.m_newplace);
 
-        // Ouch we need to recompress if we change something
-        // if we recompress we need to update the group size
-        // if we recompress we invalidate pointers due to size changes in m_buffer
+        // Keep track of things by offset in case of memory moves cause m_buffer data to move
         size_t grupOffset = (char*)m_grupPndtPtrs[0] - &m_buffer[0];
-        size_t oldCompSize = m_pndts[oBasicRec.m_iIdx].m_compdatasize;
-        _updateCompressed(m_buffer, m_pndts[oBasicRec.m_iIdx]); 
-        size_t newCompSize = m_pndts[oBasicRec.m_iIdx].m_compdatasize;
-        char *pgrup = m_buffer.data() + grupOffset;
-        GRUPHdrOv *pGrupHdr = reinterpret_cast<GRUPHdrOv*>(pgrup);
-        size_t newGrupSize = pGrupHdr->m_size + (newCompSize - oldCompSize);
+        size_t sizechange = _updateCompressed(m_buffer, m_pndts[oBasicRec.m_iIdx]); 
+        GRUPHdrOv *pGrupHdr = reinterpret_cast<GRUPHdrOv*>(m_buffer.data() + grupOffset);
+        size_t newGrupSize = pGrupHdr->m_size + sizechange;
         pGrupHdr->m_size = static_cast<uint32_t>(newGrupSize);
 
-        _loadfrombuffer(strErrReload); // after call anything in m_pndts is now reloaded 
+        _loadfrombuffer(strErrReload); // make sure everything is consistent again
     }
 
     return true;
@@ -887,8 +862,8 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     {
         PNDTGnamOv* pMutableGnam = makeMutable(oRec.m_pGnam);
         pMutableGnam->m_systemId = m_stdts[oBasicInfo.m_iPrimaryIdx].m_pDnam->m_systemId;
-        pMutableGnam->m_parentPndtplacement = static_cast<uint32_t>(oBasicInfo.m_iParentPlacement); // zero unless it's a moon
-        pMutableGnam->m_Pndtplacement = static_cast<uint32_t>(oBasicInfo.m_iPlanetPlacement);
+        pMutableGnam->m_parentPndtLocalId = static_cast<uint32_t>(oBasicInfo.m_iParentlocalId); // zero unless it's a moon
+        pMutableGnam->m_PndtLocalId = static_cast<uint32_t>(oBasicInfo.m_iPlanetlocalId);
     }
     
     if (!oRec.m_pEdid || !oRec.m_pEdid->m_size || !oRec.m_pEdid->m_name)
@@ -952,7 +927,7 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
         MKFAIL("No source provided to create the planet from.");
 
     // Check values make sense, since we will be casting these down to uint8
-    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetPlacement >0xFF)
+    if (oBasicInfo.m_iSysPlayerLvl > 0xFF || oBasicInfo.m_iSysPlayerLvlMax > 0xFF || oBasicInfo.m_iPlanetlocalId >0xFF)
         MKFAIL("Could not create planet as the values Player Level, or Planet Positon are larger than 255.");
 
     // Create and save into m_buffer the new star
@@ -1006,7 +981,7 @@ bool CEsp::makeplanet(const CEsp* pSrc, size_t iSrcPlanetIdx, const BasicInfoRec
     if (!findFmIDMap(FormIdforNewPlanet, oNewPlt))
         MKFAIL("Could not find new planet after cloning.");
 
-    _adjustPlanetPositions(oBasicInfo.m_iPrimaryIdx, oNewPlt.m_iIdx, oBasicInfo.m_iPlanetPlacement); 
+    _adjustPlanetLocalIds(oBasicInfo.m_iPrimaryIdx, oNewPlt.m_iIdx, oBasicInfo.m_iPlanetlocalId); 
    
     return true;
 }
@@ -1037,7 +1012,6 @@ bool CEsp::checkdata(std::string& strErr)
 
     return true;
 }
-
     
 bool CEsp::_saveToFile(const std::vector<char>& newbuff, const std::wstring& wstrfilename, std::string& strErr)
 {
@@ -1125,8 +1099,6 @@ bool CEsp::save(std::string &strErr)
         MKFAIL(strErr);
             
     m_bIsSaved = true;
-
-    // Some how take a copy of the \planetdata\biomemaps (ouch), look into archive, find it and extract it
 
     return true;
 }
