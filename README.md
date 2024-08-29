@@ -6,8 +6,8 @@ C++ Visual Studio 2022 project.
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if compiling the source. 
 
 Releases:
-*IMPORTANT* This is an earily release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
-[Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01)
+IMPORTANT - This is an earily release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
+[Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01).
 
 Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
