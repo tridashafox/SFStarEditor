@@ -37,7 +37,7 @@ IMPORTANT - This is an earily release with limited testing. Beware if you use it
 6. Planet -> Create moon - optional
 7. File -> Save to destination - will save to the loaded destination file. 
 8. Check the ESP works in game.
-9. Add other new planets to the star system as desired.
+9. Add other new stars, planets or moons as desired.
 10. Do any refinement to the ESP in the creation kit.
 
 ### Notes:
