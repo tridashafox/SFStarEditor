@@ -43,12 +43,14 @@ INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreateStarDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreatePlanetDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreateMoonDlg(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void OutputStr(const std::string& strOut);
 void OutputStr(const WCHAR* pwchar);
 
 // Global Variables:
 #define MAX_LISTITEMS 50000
 #define MAX_LOADSTRING 100
+#define MAXZOOM 2
 #define ID_TIMER 1
 #define TIMER_INTERVAL 30000 // 30 seconds
 #define MAX_REC_NAME_LENGTH (48) // Must not be bigger than 254. But larger then this does not make sense for displayed names.
@@ -462,7 +464,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     int height = defaultHeight*200 / SIZE_FACTOR;
 
     // Create the window with the specified size
-    HWND hMainWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW, (defaultWidth-width)/2, (defaultHeight-height)/2, 
+    hMainWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW, (defaultWidth-width)/2, (defaultHeight-height)/2, 
         width, height, nullptr, nullptr, hInstance, nullptr);
 
    if (!hMainWnd)
@@ -739,6 +741,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 break;
                             pEspDst->setNewFname(wstrFn);
                             SaveESP(hWnd, true);
+                            UpdateMenuWithFilename(hWnd, wstrFn);
                         }
                         break;
                     case IDM_FILE_CREATE_STAR: [[fallthrough]]; 
@@ -760,7 +763,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         }
                         break;
 
-                    case ID_FILE_EDITPLANET:
+                    case ID_STAR_SHOWSTARMAP:
+                        DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_SM), hWnd, DialogProcStarMap); // Dispaly star map
+                        break;
+
+                    case ID_FILE_EDITPLANET: [[fallthrough]]; 
                     case ID_FILE_EDITSTAR:
                         MessageBox(hWnd, L"Not implemented.", L"Error", MB_OK);
                         break;
@@ -1003,8 +1010,8 @@ CEsp::fPos NormalizePos(const CEsp::fPos& pos, const RECT& rect, float minX, flo
     float normalizedY = (pos.m_yPos - minY) / yRange;
 
     // Clamp the normalized values between 0 and 1
-    normalizedX = std::clamp(normalizedX, 0.0f, 1.0f);
-    normalizedY = std::clamp(normalizedY, 0.0f, 1.0f);
+    //normalizedX = std::clamp(normalizedX, 0.0f, 1.0f);
+    //normalizedY = std::clamp(normalizedY, 0.0f, 1.0f);
 
     // Map to the rectangle's coordinate system
     float xn = normalizedX * (rect.right - rect.left) + rect.left;
@@ -1015,8 +1022,14 @@ CEsp::fPos NormalizePos(const CEsp::fPos& pos, const RECT& rect, float minX, flo
     return CEsp::fPos(xn, yn, pos.m_zPos);
 }
 
-void DrawSmallText(HDC hdc, int x, int y, const std::string str, int fontSize = 15)
+void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int y, const std::string str, int fontSize = 15)
 {
+    if (iZoomllvl > 2)
+        iZoomllvl = 2;
+
+    if (iZoomllvl)
+        fontSize += (fontSize * (int)iZoomllvl)/3;
+
     HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, 
         ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, TEXT("Arial"));
 
@@ -1032,18 +1045,38 @@ void DrawSmallText(HDC hdc, int x, int y, const std::string str, int fontSize = 
 }
 
 // Starmap
-void _drawStar(HDC hdc, int iOffX, int iOffY, const CEsp::StarPlotData &plot, RECT rect, const CEsp::fPos min, const CEsp::fPos max, bool bShowNames = true)
+void _drawStar(HDC hdc, size_t iZoomllvl, int iOffX, int iOffY, const CEsp::StarPlotData &plot, RECT rect, CEsp::fPos min, CEsp::fPos max, bool bShowNames = true)
 {
-    int imar = 3;
-    CEsp::fPos normPos = NormalizePos(plot.m_oPos, rect, min.m_xPos, min.m_yPos, max.m_xPos, max.m_yPos);
-    Rectangle(hdc,  iOffX + static_cast<int>(normPos.m_xPos) - imar, 
-                    iOffY + static_cast<int>(normPos.m_yPos) - imar,
-                    iOffX + static_cast<int>(normPos.m_xPos) + imar, 
-                    iOffY + static_cast<int>(normPos.m_yPos) + imar);
+    // Base size of the star marker
+    float imar = 2;
+    float adjustedMar = imar * ((int)iZoomllvl + 1);
+    float dx = -adjustedMar;
+    float dy = -adjustedMar;
+    min.m_xPos -= dx;
+    min.m_yPos -= dy;
+    max.m_xPos += dx;
+    max.m_yPos += dy;
 
-    if (bShowNames && !plot.m_strStarName.empty())
-        DrawSmallText(hdc, iOffX + static_cast<int>(normPos.m_xPos)+imar*2, 
-            iOffY + static_cast<int>(normPos.m_yPos), plot.m_strStarName);
+    CEsp::fPos normPos = NormalizePos(plot.m_oPos, rect,  min.m_xPos, min.m_yPos,  max.m_xPos, max.m_yPos);
+
+    int rx1 = iOffX + static_cast<int>(normPos.m_xPos) - static_cast<int>(adjustedMar)/2;
+    int ry1 = iOffY + static_cast<int>(normPos.m_yPos) - static_cast<int>(adjustedMar)/2;
+    int rx2 = iOffX + static_cast<int>(normPos.m_xPos) + static_cast<int>(adjustedMar)/2;
+    int ry2 = iOffY + static_cast<int>(normPos.m_yPos) + static_cast<int>(adjustedMar)/2;
+
+    int width = GetDeviceCaps(hdc, HORZRES);
+    int height = GetDeviceCaps(hdc, VERTRES);
+    if (rx1>=0 && rx1<=width && ry1>=0 && ry1<=height && rx2>=0 && rx2<=width && ry2>=0 && ry2<=height)
+        Rectangle(hdc, rx1, ry1, rx2, ry2);
+
+    POINT p;
+    int px = iOffX + static_cast<int>(normPos.m_xPos) + static_cast<int>(imar) * 2;
+    int py = iOffY + static_cast<int>(normPos.m_yPos);
+    if (px >= 0 && px <= width && py >= 0 && py <= height)
+    {
+        if (bShowNames && !plot.m_strStarName.empty())
+            DrawSmallText(hdc, iZoomllvl, px, py, plot.m_strStarName);
+    }
 }
 
 
@@ -1070,29 +1103,54 @@ void _drawblkbkg(HDC hdc, POINT pt1, POINT pt2)
     DeleteObject(hBrush);
 }
 
+void _invalidDlgitem(HWND hDlg, int iItem)
+{
+    RECT rcItem;
+    HWND hItem = GetDlgItem(hDlg, iItem);
+    GetWindowRect(hItem, &rcItem);
+    MapWindowPoints(HWND_DESKTOP, hDlg, (LPPOINT)&rcItem, 2);
+    InvalidateRect(hDlg, &rcItem, FALSE);
+    UpdateWindow(hDlg);
+}
+
 // Star map dialog
 // TODO support zoom with mouse wheel
 // Needed to pass data to the star map
 CEsp::StarPlotData gdlgData;
+size_t iZoomlevel = 0;
 INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
     case WM_INITDIALOG:
-    {
-        HWND hCombo = GetDlgItem(hDlg, IDC_COMBOVIEW);
-        LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Top (xy)");
-        SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_NONE);
-        index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Front (xz)");
-        SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_XZ);
-        index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Side (yz)");
-        SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_YZ);
-        SendMessage(hCombo, CB_SETCURSEL, index, 0);
-        HWND hSlider = GetDlgItem(hDlg, IDC_SLIDERDT);
-        SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX));
-        SendMessage(hSlider, TBM_SETTICFREQ, SLIDER_RNG_MAX, 0);
-        SendMessage(hSlider, TBM_SETPOS, TRUE, SLIDER_RNG_MAX);
-    }
-    return TRUE;
+        {
+            HWND hCombo = GetDlgItem(hDlg, IDC_COMBOVIEW);
+            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Top (xy)");
+            SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_NONE);
+            index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Front (xz)");
+            SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_XZ);
+            index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Side (yz)");
+            SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_YZ);
+            SendMessage(hCombo, CB_SETCURSEL, index, 0);
+            HWND hSlider = GetDlgItem(hDlg, IDC_SLIDERDT);
+            SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX));
+            SendMessage(hSlider, TBM_SETTICFREQ, SLIDER_RNG_MAX, 0);
+            SendMessage(hSlider, TBM_SETPOS, TRUE, SLIDER_RNG_MAX);
+            iZoomlevel = 0;
+        }
+        return TRUE;
+        break;
+
+    case WM_MOUSEWHEEL:
+        {
+            int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+            if (iZoomlevel!= 0  && zDelta < 0 )
+                iZoomlevel--;
+            else 
+            if (iZoomlevel!=MAXZOOM && zDelta > 0)
+                iZoomlevel++;
+            _invalidDlgitem(hDlg, IDC_STATIC_P2);
+            return TRUE;
+        }
 
     case WM_PAINT: {
         PAINTSTRUCT ps;
@@ -1139,7 +1197,7 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
             int i = 0;
             _createBrushandPen(hdc, RGB(255, 255, 255), hBr, hPen);
             for (const CEsp::StarPlotData& plot : srcPlots)
-                _drawStar(hdc, iOffX, iOffY, plot, rect, min, max, sp==0 ? 1 : sp==SLIDER_RNG_MAX-1 ? 0 : (i++ % sp)<=0);
+                _drawStar(hdc, iZoomlevel, iOffX, iOffY, plot, rect, min, max, sp==0 ? 1 : sp==SLIDER_RNG_MAX-1 ? 0 : (i++ % sp)<=0);
             _deleteBrushandPen(hBr, hPen);
         }
 
@@ -1147,15 +1205,18 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
         {
             _createBrushandPen(hdc, RGB(0, 255, 0), hBr, hPen);
             for (const CEsp::StarPlotData& plot : dstPlots)
-                _drawStar(hdc, iOffX, iOffY, plot, rect, min, max, sp!=SLIDER_RNG_MAX-1);
+                _drawStar(hdc, iZoomlevel, iOffX, iOffY, plot, rect, min, max, sp!=SLIDER_RNG_MAX-1);
              _deleteBrushandPen(hBr, hPen);
         }
         
         // Draw the new star 
-        CEsp::StarPlotData plot(pEspSrc->posSwap(gdlgData.m_oPos, eSwap), gdlgData.m_strStarName.empty() ? "(new unnamed)" : gdlgData.m_strStarName);
-        _createBrushandPen(hdc, RGB(255, 0, 0), hBr, hPen);
-        _drawStar(hdc, iOffX, iOffY, plot, rect, min, max);
-        _deleteBrushandPen(hBr, hPen);
+        if (GetParent(hDlg) != hMainWnd) // if not opened from main window
+        {
+            CEsp::StarPlotData plot(pEspSrc->posSwap(gdlgData.m_oPos, eSwap), gdlgData.m_strStarName.empty() ? "(new unnamed)" : gdlgData.m_strStarName);
+            _createBrushandPen(hdc, RGB(255, 0, 0), hBr, hPen);
+            _drawStar(hdc, iZoomlevel, iOffX, iOffY, plot, rect, min, max);
+            _deleteBrushandPen(hBr, hPen);
+        }
 
         SelectClipRgn(hdc, NULL);
         DeleteObject(hRgn);
@@ -1164,17 +1225,13 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
     case WM_HSCROLL:
         if ((HWND)lParam == GetDlgItem(hDlg, IDC_SLIDERDT))
-        {
-            InvalidateRect(hDlg, NULL, TRUE);
-            UpdateWindow(hDlg);
-        }
+            _invalidDlgitem(hDlg, IDC_STATIC_P2);
         break;
     case WM_COMMAND:
         if ((HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBOVIEW) ||
             ((LOWORD(wParam) == IDC_HIDEDST || LOWORD(wParam) == IDC_HIDESRC || LOWORD(wParam) == IDC_HIDENAMES) && HIWORD(wParam) == BN_CLICKED))
         {
-            InvalidateRect(hDlg, NULL, TRUE);
-            UpdateWindow(hDlg);
+            _invalidDlgitem(hDlg, IDC_STATIC_P2);
         }
         else
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
@@ -1804,20 +1861,14 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return (INT_PTR)FALSE;
 }
 
-
-// TODO: more name validation to prevent unwanted chars
-// TODO: clean up that nasty compression code in Adjust planets
-// TODO  allow for a custom moon name (would need to check if unique)
-// TODO: test moons
-// TODO: show selected star/planet info in dialogs, save and save as show name
-// TODO: clean up saving (make sure it works)
 // TODO: better map - let positon be selected on map?
-// TODO: ?when creating a star extend the dialog so it also has the creating planet part as a star must have at least one planet, or change to a wizard with steps
+// TODO: support pan on map
+// TODO: map to show star system with planets
 // TODO: extend dialog to allow for more editing of other records of data
-// TODO: support editing of biom data
+// TODO: support editing of biom data ?? does not look much can be edited here
 // TODO: allow 3d view of star/planet
 // TODO: Allow planets as moons, moons as planets
-// TODO: Provide star system generation 
+// TODO: Provide star system generation (x planets, x moons, etc)
 // TODO: support adding POI
 // TODO: replace current persistence with sertialization model and add in a class model, don't allow any indexs into pndt/stdt/lctn from UX use formids
 

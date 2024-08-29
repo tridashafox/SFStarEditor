@@ -65,6 +65,7 @@
 #define ID_FILE_SAVEAS                  32780
 #define ID_PLANET_CREATEMOON            32781
 #define ID_FILE_EDITSTAR                32782
+#define ID_STAR_SHOWSTARMAP             32783
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -73,7 +74,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         32783
+#define _APS_NEXT_COMMAND_VALUE         32784
 #define _APS_NEXT_CONTROL_VALUE         1036
 #define _APS_NEXT_SYMED_VALUE           140
 #endif
