@@ -638,7 +638,7 @@ CEsp::fPos CEsp::posSwap(const CEsp::fPos& oOrgPos, CEsp::POSSWAP eSwapXZ)
     case PSWAP_YZ:     oPos = fPos(oOrgPos.m_xPos, oOrgPos.m_zPos, oOrgPos.m_yPos); break;
     case PSWAP_XFLIP:  oPos = fPos(-oOrgPos.m_xPos, oOrgPos.m_yPos, oOrgPos.m_zPos); break;
     case PSWAP_YFLIP:  oPos = fPos(oOrgPos.m_xPos, -oOrgPos.m_yPos, oOrgPos.m_zPos); break;
-    case PSWAP_ZFLIP:  oPos = fPos(oOrgPos.m_xPos, oOrgPos.m_yPos, oOrgPos.m_zPos); break;
+    case PSWAP_ZFLIP:  oPos = fPos(oOrgPos.m_xPos, oOrgPos.m_yPos, -oOrgPos.m_zPos); break;
     default:
         return oOrgPos;
     }
