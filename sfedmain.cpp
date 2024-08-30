@@ -50,7 +50,8 @@ void OutputStr(const WCHAR* pwchar);
 // Global Variables:
 #define MAX_LISTITEMS 50000
 #define MAX_LOADSTRING 100
-#define MAXZOOM 2
+#define MAXZOOM 6
+#define MAXTEXTZOOM 2
 #define ID_TIMER 1
 #define TIMER_INTERVAL 30000 // 30 seconds
 #define MAX_REC_NAME_LENGTH (48) // Must not be bigger than 254. But larger then this does not make sense for displayed names.
@@ -1010,8 +1011,8 @@ CEsp::fPos NormalizePos(const CEsp::fPos& pos, const RECT& rect, float minX, flo
     float normalizedY = (pos.m_yPos - minY) / yRange;
 
     // Clamp the normalized values between 0 and 1
-    //normalizedX = std::clamp(normalizedX, 0.0f, 1.0f);
-    //normalizedY = std::clamp(normalizedY, 0.0f, 1.0f);
+   // normalizedX = std::clamp(normalizedX, 0.0f, 1.0f);
+   // normalizedY = std::clamp(normalizedY, 0.0f, 1.0f);
 
     // Map to the rectangle's coordinate system
     float xn = normalizedX * (rect.right - rect.left) + rect.left;
@@ -1022,10 +1023,11 @@ CEsp::fPos NormalizePos(const CEsp::fPos& pos, const RECT& rect, float minX, flo
     return CEsp::fPos(xn, yn, pos.m_zPos);
 }
 
-void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int y, const std::string str, int fontSize = 15)
+void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const std::string str, int fontSize = 15)
 {
-    if (iZoomllvl > 2)
-        iZoomllvl = 2;
+    // limit how big the text gets since the point of zooming is to decluter the text
+    if (iZoomllvl > MAXTEXTZOOM)
+        iZoomllvl = MAXTEXTZOOM;
 
     if (iZoomllvl)
         fontSize += (fontSize * (int)iZoomllvl)/3;
@@ -1039,17 +1041,32 @@ void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int y, const std::string st
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetTextColor(hdc, RGB(255, 255, 255)); // Black text
     SetBkMode(hdc, TRANSPARENT);
-    TextOut(hdc, x, y, text, (int)_tcslen(text));
+
+    // Convert std::string to std::wstring
+    std::wstring wstr = strToWstr(str);
+    SIZE textSize;
+    GetTextExtentPoint32(hdc, wstr.c_str(), wstr.length(), &textSize);
+    int rectCenterY = (top + bottom) / 2;
+    int textStartY = rectCenterY - (textSize.cy / 2);
+    RECT textRect;
+    textRect.left = x;
+    textRect.top = textStartY;
+    textRect.right = x + textSize.cx;
+    textRect.bottom = textStartY + textSize.cy;
+
+    // Draw the text
+    DrawText(hdc, wstr.c_str(), -1, &textRect, DT_LEFT | DT_TOP | DT_NOCLIP);
+
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
 }
 
 // Starmap
-void _drawStar(HDC hdc, size_t iZoomllvl, int iOffX, int iOffY, const CEsp::StarPlotData &plot, RECT rect, CEsp::fPos min, CEsp::fPos max, bool bShowNames = true)
+void _drawStar(HDC hdc, size_t Zoomllvl, int iOffX, int iOffY, const CEsp::StarPlotData &plot, RECT rect, CEsp::fPos min, CEsp::fPos max, bool bShowNames = true)
 {
     // Base size of the star marker
     float imar = 2;
-    float adjustedMar = imar * ((int)iZoomllvl + 1);
+    float adjustedMar = imar * static_cast<int>(Zoomllvl);
     float dx = -adjustedMar;
     float dy = -adjustedMar;
     min.m_xPos -= dx;
@@ -1064,17 +1081,20 @@ void _drawStar(HDC hdc, size_t iZoomllvl, int iOffX, int iOffY, const CEsp::Star
     int rx2 = iOffX + static_cast<int>(normPos.m_xPos) + static_cast<int>(adjustedMar)/2;
     int ry2 = iOffY + static_cast<int>(normPos.m_yPos) + static_cast<int>(adjustedMar)/2;
 
+    // keep a min size if zoomed too far out
+    if ((rx2 - rx1) < static_cast<int>(imar)) rx2 = rx1 + static_cast<int>(imar);
+    if ((ry2 - ry1) < static_cast<int>(imar)) ry2 = ry1 + static_cast<int>(imar);
+
     int width = GetDeviceCaps(hdc, HORZRES);
     int height = GetDeviceCaps(hdc, VERTRES);
     if (rx1>=0 && rx1<=width && ry1>=0 && ry1<=height && rx2>=0 && rx2<=width && ry2>=0 && ry2<=height)
         Rectangle(hdc, rx1, ry1, rx2, ry2);
 
-    int px = iOffX + static_cast<int>(normPos.m_xPos) + static_cast<int>(imar) * 2;
-    int py = iOffY + static_cast<int>(normPos.m_yPos);
-    if (px >= 0 && px <= width && py >= 0 && py <= height)
+    int px = rx2 + static_cast<int>(imar) + static_cast<int>(imar) * static_cast<int>(Zoomllvl);
+    if (px >= 0 && px <= width && ry1 >= 0 && ry1 <= height)
     {
         if (bShowNames && !plot.m_strStarName.empty())
-            DrawSmallText(hdc, iZoomllvl, px, py, plot.m_strStarName);
+            DrawSmallText(hdc, Zoomllvl, px, ry1, ry2, plot.m_strStarName);
     }
 }
 
@@ -1131,7 +1151,7 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
             SendMessage(hCombo, CB_SETITEMDATA, (WPARAM)index, (LPARAM)CEsp::PSWAP_YZ);
             SendMessage(hCombo, CB_SETCURSEL, index, 0);
             HWND hSlider = GetDlgItem(hDlg, IDC_SLIDERDT);
-            SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX));
+            SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX-1));
             SendMessage(hSlider, TBM_SETTICFREQ, SLIDER_RNG_MAX, 0);
             SendMessage(hSlider, TBM_SETPOS, TRUE, SLIDER_RNG_MAX);
             iZoomlevel = 0;
@@ -1190,6 +1210,14 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
         // Must always do this one after other so min/max get set correct
         if (pEspSrc) pEspSrc->getStarPositons(srcPlots, min, max, eSwap);
         if (pEspDst) pEspDst->getStarPositons(dstPlots, min, max, eSwap);
+
+        // Add a 10% margin
+        float fmarX = (max.m_xPos - min.m_xPos) / 20;
+        float fmarY = (max.m_yPos - min.m_yPos) / 10;
+        float fmarZ = (max.m_zPos - min.m_zPos) / 10;
+        min.m_xPos -= fmarX; max.m_xPos += fmarX;
+        min.m_yPos -= fmarY; max.m_yPos += fmarY;
+        min.m_zPos -= fmarZ; max.m_zPos += fmarZ;
 
         if (!bHideSrc)
         {
@@ -1860,6 +1888,7 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return (INT_PTR)FALSE;
 }
 
+// TODO: allow orbits to be edited
 // TODO: better map - let positon be selected on map?
 // TODO: Allow planets as moons, moons as planets
 // TODO: support pan on map
