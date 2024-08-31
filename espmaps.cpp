@@ -34,7 +34,8 @@
 #define MAXZOOM 6
 #define MAXTEXTZOOM 2
 #define SCALECORD 1000 // used to scale up star cord system to get better resolution when panning and zooming
-#define STARICONSIZE 2
+#define STARICONSIZE 2.0f
+#define ZOOMSCALING (0.5f) // adjust how much affect zooming has on the size of things
 
 #include "espmanger.h"
 
@@ -66,8 +67,11 @@ void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const 
     if (iZoomllvl > MAXTEXTZOOM)
         iZoomllvl = MAXTEXTZOOM;
 
+    float zoomlvl = static_cast<float>(iZoomllvl);
+    float zoomadj = static_cast<float>(fontSize) * (zoomlvl * ZOOMSCALING)/3.0f;
+
     if (iZoomllvl)
-        fontSize += fontSize * iZoomllvl/3;
+        fontSize += static_cast<int>(zoomadj);
 
     HFONT hFont = CreateFont(static_cast<int>(fontSize), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, 
         ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, TEXT("Arial"));
@@ -167,7 +171,7 @@ void _drawStar(HDC hdc, size_t iZoomllvl, CEsp::fPos zoominc, int iOffX, int iOf
     CEsp::fPos normPos = NormalizePos(plot.m_oPos, rect,  min.m_xPos, min.m_yPos,  max.m_xPos, max.m_yPos);
 
     const float minsize = STARICONSIZE;
-    float rectsize = minsize + minsize * zoomlvl;
+    float rectsize = minsize + minsize * (zoomlvl * ZOOMSCALING);
     float fx1 = iOffX + normPos.m_xPos - std::max(minsize, rectsize/2);
     float fy1 = iOffY + normPos.m_yPos - std::max(minsize, rectsize/2);
     float fx2 = iOffX + normPos.m_xPos + std::max(minsize, rectsize/2);
@@ -318,7 +322,7 @@ void _getMapCalcs(HWND hDlg, int iDlgItem, RECT & rect, CEsp::fPos & min, CEsp::
     min.m_zPos -= fmarZ; max.m_zPos += fmarZ;
 }
 
-void _adjustForPan(HWND hDlg, const int izoomlvl, const CEsp::fPos &zoominc,  int iDlgItem, const bool bPanning, const RECT rect, const POINT ptSrt, POINT &ptLst, CEsp::fPos & min, CEsp::fPos & max)
+void _adjustForPan(HWND hDlg, const size_t izoomlvl, const CEsp::fPos &zoominc,  int iDlgItem, const bool bPanning, const RECT rect, const POINT ptSrt, POINT &ptLst, CEsp::fPos & min, CEsp::fPos & max)
 {
     POINT pt;
     if (bInPan && _IsInDlgItem(hDlg, iDlgItem, pt))
@@ -397,14 +401,17 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
             POINT pt;
             if (_IsInDlgItem(hDlg, IDC_STATIC_P2, pt))
             {
-                if (!ptStart.x && !ptStart.y)
-                {
-                    RECT rect;
-                    CEsp::fPos min = stmap_min;
-                    CEsp::fPos max = stmap_max;
-                    _getMapCalcs(hDlg, IDC_STATIC_P2, rect, min, max);
-                    ptStart = DenormalizePos(pt, iZoomlevel, stdmap_zoominc, rect, min.m_xPos, min.m_yPos, max.m_xPos, max.m_yPos);
-                }
+                RECT rect;
+                CEsp::fPos min = stmap_min;
+                CEsp::fPos max = stmap_max;
+                _getMapCalcs(hDlg, IDC_STATIC_P2, rect, min, max);
+                // work out our offset from before and add it in to the new postion
+                POINT delta;
+                delta.x = ptLast.x - ptStart.x;
+                delta.y = ptLast.y - ptStart.y;
+                ptStart = DenormalizePos(pt, iZoomlevel, stdmap_zoominc, rect, min.m_xPos, min.m_yPos, max.m_xPos, max.m_yPos);
+                ptStart.x -= delta.x;
+                ptStart.y -= delta.y;
                 bInPan = true;
             }
             break;
