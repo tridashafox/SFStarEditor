@@ -110,6 +110,19 @@ void CEsp::_buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& en
     }
 }
 
+// build list of strings are in the middle of the PNDT HNAM 
+void CEsp::_buildHnamRec(PNDTHnam2Rec& oHnam2, const char*& searchPtr, const char*& endPtr)
+{
+    for (size_t i=0; i<NUMHNAMSTRINGS && searchPtr < endPtr; i++)
+        if (BLEFT >= sizeof(PNDTHnam2String))
+        {
+            oHnam2.m_oStrings[i].m_size = *reinterpret_cast<const uint32_t*>(searchPtr);
+            searchPtr += sizeof(uint32_t);
+            oHnam2.m_oStrings[i].m_pString = searchPtr;
+            searchPtr += oHnam2.m_oStrings[i].m_size;
+        }
+}
+
 void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr)
 {
     bool bFndBdst = false;
@@ -117,6 +130,8 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
     oRec.m_pEdid = &BADEDIDREC;
     oRec.m_pAnam = &BADPNDTANAMREC;
     oRec.m_pGnam = &BADPNDTGNAMREC;
+    oRec.m_pHnam1 = &BADPNDTHNAMREC1;
+    oRec.m_pHnam3 = &BADPNDTHNAMREC3;
     oRec.m_isBad = true;
     oRec.m_isMissingMatchingBfce = false;
     oRec.m_oComp.clear();
@@ -202,6 +217,23 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
                     {
                         oRec.m_pGnam = reinterpret_cast<const PNDTGnamOv*>(searchPtr);
                         searchPtr += BSKIP(oRec.m_pGnam); // Skip forward
+                    }
+                    continue;
+                }
+                if (memcmp(searchPtr, "HNAM", taglen) == 0)
+                {
+                    if (BLEFT >= sizeof(PNDTHnam1Ov))
+                    {
+                        oRec.m_pHnam1 = reinterpret_cast<const PNDTHnam1Ov*>(searchPtr);
+                        searchPtr += sizeof(PNDTHnam1Ov); // Skip forward
+
+                        _buildHnamRec(oRec.m_oHnam2, searchPtr, endPtr);
+
+                        if (BLEFT >= sizeof(PNDTHnam3Ov))
+                        {
+                            oRec.m_pHnam3 = reinterpret_cast<const PNDTHnam3Ov*>(searchPtr);
+                            searchPtr += sizeof(PNDTHnam3Ov); // Skip forward
+                        }
                     }
                     break; // Done - Not looking for anything beyond this
                 }

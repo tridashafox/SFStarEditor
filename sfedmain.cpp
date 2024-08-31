@@ -44,6 +44,7 @@ INT_PTR CALLBACK CreateStarDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreatePlanetDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK CreateMoonDlg(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void OutputStr(const std::string& strOut);
 void OutputStr(const WCHAR* pwchar);
 
@@ -768,6 +769,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             MessageBox(hWnd, L"An ESM must be selected as the 'Source' which contains at least one star to in order to show the star map.", L"Error", MB_OK | MB_ICONERROR);
                         else
                             DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_SM), hWnd, DialogProcStarMap); // Dispaly star map
+                        break;
+
+                    case ID_PLANET_SHOWPLANETMAP:
+                        if (!pEspSrc || !pEspSrc->getNum(CEsp::eESP_PNDT))
+                            MessageBox(hWnd, L"An ESM must be selected as the 'Source' which contains at least one planet to in order to show the planet map.", L"Error", MB_OK | MB_ICONERROR);
+                        else
+                            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG_PM), hWnd, DialogProcPlanetMap); // Dispaly star map
                         break;
 
                     case ID_FILE_EDITPLANET: [[fallthrough]]; 
@@ -1618,11 +1626,10 @@ INT_PTR CALLBACK CreateMoonDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return (INT_PTR)FALSE;
 }
 
-// TODO: allow orbits to be edited
-// TODO: better map - let positon be selected on map?
+// TODO: allow orbits to be edited (HNAM perihelion)
+// TODO: better map - let positon be selected on map? random
 // TODO: Allow planets as moons, moons as planets
-// TODO: support pan on map
-// TODO: extend dialog to allow for more editing of other records of data
+// TODO: implement edit moon, edit planet, edit star
 // TODO: support editing of biom data ?? 
 // TODO: allow 3d view of star/planet using nif and texts 
 // TODO: Provide star system generation (x planets, x moons, etc)

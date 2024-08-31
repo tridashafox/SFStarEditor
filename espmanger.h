@@ -112,14 +112,16 @@ public:
     {
         BasicInfoRec() { clear(); }
         BasicInfoRec(const ESPRECTYPE eType, const char* pName, const char* pAName,
-            const bool bMoon, const bool bLandable, 
-            const fPos& oPos, const size_t iIdx, 
+            const bool bMoon, const bool bLandable,
+            const fPos& oPos, const size_t iIdx,
             const size_t iPrimaryIdx, const size_t iPlanetLocalId, const size_t iParentLocalId,
             const size_t iSysPlayerLvl, const size_t iSysPlayerLvlMax, const size_t iFaction) :
             m_eType(eType), m_pName(pName), m_pAName(pAName), m_bIsMoon(bMoon), m_bIsLandable(bLandable), m_StarMapPostion(oPos),
             m_iIdx(iIdx), m_iPrimaryIdx(iPrimaryIdx), m_iPlanetlocalId(iPlanetLocalId), m_iParentlocalId(iParentLocalId),
             m_iSysPlayerLvl(iSysPlayerLvl), m_iSysPlayerLvlMax(iSysPlayerLvlMax),
-            m_iFaction(iFaction) { m_bRtFlag = false; }
+            m_iFaction(iFaction) {
+            m_bRtFlag = false;
+        }
         void clear()
         {
             m_bRtFlag = false;
@@ -129,9 +131,9 @@ public:
             m_StarMapPostion.clear();
             m_eType = eESP_IDK;
             m_iIdx = NO_RECIDX;
-            m_iPrimaryIdx = NO_ORBIT; 
+            m_iPrimaryIdx = NO_ORBIT;
             m_iPlanetlocalId = 0;
-            m_iParentlocalId = 0; 
+            m_iParentlocalId = 0;
             m_iSysPlayerLvl = 0;
             m_iSysPlayerLvlMax = 0;
             m_iFaction = 0;
@@ -162,12 +164,12 @@ public:
     };
 
 private:
-    int no_op() {int a = 0; int b = 1; return a + b; }
+    int no_op() { int a = 0; int b = 1; return a + b; }
 
     void rlc(std::string& str) // for basic formating of lists 
-    { 
+    {
         if (!str.empty() && str.back() == ' ') str.pop_back();
-        if (!str.empty() && str.back() == ',') str.pop_back(); 
+        if (!str.empty() && str.back() == ',') str.pop_back();
     }
 
     // For debugging and timing
@@ -175,12 +177,12 @@ private:
 
     using timept = std::chrono::high_resolution_clock::time_point;
 
-    timept startTC()  
-    { 
-        return std::chrono::high_resolution_clock::now(); 
+    timept startTC()
+    {
+        return std::chrono::high_resolution_clock::now();
     }
 
-    void endTC(const std::string &pref, timept startTime)
+    void endTC(const std::string& pref, timept startTime)
     {
         timept endTime = std::chrono::high_resolution_clock::now();
         std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
@@ -220,27 +222,27 @@ private:
         uint16_t m_versnInfo2;
         uint16_t m_versnInfo3;
     };
-    const TES4HdrOv  BADTES4HDRREC  = TES4HdrOv();
+    const TES4HdrOv  BADTES4HDRREC = TES4HdrOv();
 
     struct HEDRHdrOv {
-        HEDRHdrOv() { memset(this, 0, sizeof(*this)); } 
+        HEDRHdrOv() { memset(this, 0, sizeof(*this)); }
         char m_HEDRtag[4];
         uint16_t m_size;
         uint32_t m_versn;
         uint32_t m_recordcount;
         formid_t m_nextobjectid;
     };
-    const HEDRHdrOv BADHEDRHDRREC = HEDRHdrOv(); 
+    const HEDRHdrOv BADHEDRHDRREC = HEDRHdrOv();
 
     struct MASTOv { // Name of the master file the ESP uses
-        MASTOv() { memset(this, 0, sizeof(*this)); } 
+        MASTOv() { memset(this, 0, sizeof(*this)); }
         char m_MASTtag[4];
         uint16_t m_size;
         uint8_t m_name; // first char in string ends with '\0'
     };
-    const MASTOv BADMASTREC = MASTOv(); 
+    const MASTOv BADMASTREC = MASTOv();
 
-     // Common to multiple record types
+    // Common to multiple record types
     struct EDIDrecOv { // Used for the internal textual name
         EDIDrecOv() { memset(this, 0, sizeof(*this)); }
         char m_EDIDtag[4];
@@ -278,7 +280,7 @@ private:
         COMPRec(const BFCBrecOv* pBfcbName, const BFCBDatarecOv* pBfcbData) : m_pBfcbName(pBfcbName), m_pBfcbData(pBfcbData) {}
         const BFCBrecOv* m_pBfcbName;
         const BFCBDatarecOv* m_pBfcbData;
-    }; 
+    };
 
     struct PPBDOv  // holds POI data for planet as na array of these
     {
@@ -292,7 +294,7 @@ private:
     struct FULLrecOv { // Full user visible name
         FULLrecOv() { memset(this, 0, sizeof(*this)); }
         char m_FULLtag[4];
-        uint16_t m_size; 
+        uint16_t m_size;
         uint8_t m_name; // first byte in data, could be string or data
     };
     const FULLrecOv BADFULLREC = FULLrecOv();
@@ -322,7 +324,7 @@ private:
     const GRUPHdrOv BADGRUPHDRREC = GRUPHdrOv();
 
     struct GRUPBlankOv { // after GRUP there is a short blank record using the same tag as the types of records in it
-        GRUPBlankOv() { memset(this, 0, sizeof(*this)); } 
+        GRUPBlankOv() { memset(this, 0, sizeof(*this)); }
         uint8_t m_tag[4]; // depends type of records
         uint32_t m_size; // zero for these records
         uint32_t m_flags; // 0x3106 for these records
@@ -331,7 +333,7 @@ private:
     const GRUPBlankOv BADGRUPBLANKREC = GRUPBlankOv();
 
     struct STDTHdrOv {
-        STDTHdrOv() { memset(this, 0, sizeof(*this)); } 
+        STDTHdrOv() { memset(this, 0, sizeof(*this)); }
         uint8_t m_STDTtag[4];
         uint32_t m_size;
         uint32_t m_flags;
@@ -415,7 +417,7 @@ private:
     };
     const PNDTAnamOv BADPNDTANAMREC = PNDTAnamOv();
 
-    struct PNDTCnamOv 
+    struct PNDTCnamOv
     {
         PNDTCnamOv() { memset(this, 0, sizeof(*this)); }
         uint8_t m_CNAMtag[4];
@@ -433,6 +435,48 @@ private:
         uint32_t m_PndtLocalId; // the 1..n sequence positon of the planet e.g. 3rd rock from the sun, moons are in this sequence but after all the planets
     };
     const PNDTGnamOv BADPNDTGNAMREC = PNDTGnamOv();
+
+    struct PNDTHnam1Ov
+    {
+        PNDTHnam1Ov() { memset(this, 0, sizeof(*this)); }
+        uint8_t m_HNAMtag[4];
+        uint16_t m_size;
+        uint32_t m_notused1;
+    };
+    const PNDTHnam1Ov BADPNDTHNAMREC1 = PNDTHnam1Ov();
+
+    #define NUMHNAMSTRINGS 8
+    const std::string PNDTHnam2StringLabel[NUMHNAMSTRINGS] = { "SpectralClass", "CatalogueID", "Life", "Magnetoshere", "Mass(Kg)", "Type", "SettledStar", "Special" };
+    struct PNDTHnam2String
+    {
+        uint32_t m_size;
+        const char* m_pString;
+    };
+    struct PNDTHnam2Rec // Not a OV: Varible lenght structure of strings in the middle of PNDT HNAM
+    {
+        PNDTHnam2Rec() { memset(this, 0, sizeof(*this)); }
+        PNDTHnam2String m_oStrings[NUMHNAMSTRINGS];
+    };
+    struct PNDTHnam3Ov
+    {
+        PNDTHnam3Ov() { memset(this, 0, sizeof(*this)); }
+        double m_perihelion;
+        double m_stardist;
+        float m_density;
+        float m_heat;
+        float m_Hydro;
+        float m_innerhz;
+        float m_outerhz;
+        float m_periangle;
+        uint32_t unsed2;
+        float m_startangle;
+        float m_yearlen;
+        uint32_t m_asteriods;
+        uint32_t m_geostationary;
+        uint32_t m_randomseed;
+        uint32_t m_rings;
+    };
+    const PNDTHnam3Ov BADPNDTHNAMREC3 = PNDTHnam3Ov();
 
     // Planet - PNDT record which pulls the above togather in one record which references the others build during loading or refeshed after mods
     // Rec is different in that the pointers after the m_decompress point into the decompress buffer while the compressed buffer and header
@@ -452,6 +496,9 @@ private:
         const PNDTCnamOv* m_pCnam;
         std::vector<const PPBDOv*> m_oPpbds; // Set of PPBD records which old biom information
         const PNDTGnamOv* m_pGnam;
+        const PNDTHnam1Ov* m_pHnam1;
+        PNDTHnam2Rec m_oHnam2;
+        const PNDTHnam3Ov* m_pHnam3;
     };
 
     // LCTN header record
@@ -686,6 +733,7 @@ private:
     // planets
     BasicInfoRec _makeBasicPlanetRec(const size_t iIdx);
     void _buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
+    void _buildHnamRec(PNDTHnam2Rec& oHnam2, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void _dopndt_op(size_t iPndtIdx);
     void process_pndt_ranged_op_mt(size_t start, size_t end);

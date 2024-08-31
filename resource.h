@@ -17,6 +17,8 @@
 #define IDD_DIALOG2                     131
 #define IDD_DIALOG_SM                   132
 #define IDD_DIALOGMOON                  133
+#define IDD_DIALOG_SM1                  134
+#define IDD_DIALOG_PM                   134
 #define IDB_SELESP                      201
 #define IDC_COMBO1                      1000
 #define IDC_COMBO2                      1001
@@ -66,6 +68,7 @@
 #define ID_PLANET_CREATEMOON            32781
 #define ID_FILE_EDITSTAR                32782
 #define ID_STAR_SHOWSTARMAP             32783
+#define ID_PLANET_SHOWPLANETMAP         32784
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -74,7 +77,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         32784
+#define _APS_NEXT_COMMAND_VALUE         32785
 #define _APS_NEXT_CONTROL_VALUE         1036
 #define _APS_NEXT_SYMED_VALUE           140
 #endif

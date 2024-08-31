@@ -533,3 +533,165 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
     return (INT_PTR)FALSE;
 }
+
+
+// Star map dialog
+INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message) {
+    case WM_INITDIALOG:
+        {
+            HWND hCombo = GetDlgItem(hDlg, IDC_COMBO2);
+            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Source");
+            index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Destination");
+            //SendMessage(hCombo, CB_SETCURSEL, index, 0);
+
+            HWND hSlider = GetDlgItem(hDlg, IDC_SLIDERDT);
+            SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX-1));
+            SendMessage(hSlider, TBM_SETTICFREQ, SLIDER_RNG_MAX, 0);
+            SendMessage(hSlider, TBM_SETPOS, TRUE, SLIDER_RNG_MAX);
+
+            iZoomlevel = 0;
+            bInPan = false;
+            ptStart = POINT(0, 0);
+            ptLast = POINT(0, 0);
+        }
+        return TRUE;
+        break;
+
+    case WM_MOUSEWHEEL:
+        {
+            int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+            if (iZoomlevel!= 0  && zDelta < 0 )
+                iZoomlevel--;
+            else 
+            if (iZoomlevel!=MAXZOOM && zDelta > 0)
+                iZoomlevel++;
+            _invalidDlgitem(hDlg, IDC_STATIC_P2);
+            return TRUE;
+        }
+
+    case WM_MOUSEMOVE:
+        if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0)
+        {
+            POINT pt;
+            if (!_IsInDlgItem(hDlg, IDC_STATIC_P2, pt))
+                bInPan = false;
+            else
+            if (bInPan)
+                _invalidDlgitem(hDlg, IDC_STATIC_P2);
+        }
+        break;
+
+    case WM_LBUTTONDOWN:
+        {
+            POINT pt;
+            if (_IsInDlgItem(hDlg, IDC_STATIC_P2, pt))
+            {
+                //RECT rect;
+                //CEsp::fPos min = stmap_min;
+                //CEsp::fPos max = stmap_max;
+               // _getMapCalcs(hDlg, IDC_STATIC_P2, rect, min, max);
+                // work out our offset from before and add it in to the new postion
+                POINT delta;
+                delta.x = ptLast.x - ptStart.x;
+                delta.y = ptLast.y - ptStart.y;
+               // ptStart = DenormalizePos(pt, iZoomlevel, stdmap_zoominc, rect, min.m_xPos, min.m_yPos, max.m_xPos, max.m_yPos);
+                ptStart.x -= delta.x;
+                ptStart.y -= delta.y;
+                bInPan = true;
+            }
+            break;
+        }
+    case WM_LBUTTONUP:
+        bInPan = false;
+        break;
+
+    case WM_HSCROLL:
+        if ((HWND)lParam == GetDlgItem(hDlg, IDC_SLIDERDT))
+            _invalidDlgitem(hDlg, IDC_STATIC_P2);
+        break;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return TRUE;
+        }
+        else
+        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO2)
+        {
+            HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
+            LRESULT selectedIndex = SendMessage(hCombo2, CB_GETCURSEL, 0, 0);
+
+            if ((pEspSrc && selectedIndex==0) || (pEspDst && selectedIndex==1))
+            {
+                // Populate Combo boxes
+                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                if (selectedIndex==0)
+                    pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs);
+                else 
+                    pEspDst->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs);
+                HWND hCombo1 = GetDlgItem(hDlg, IDC_COMBO1);
+                for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+                    if (*oBasicInfo.m_pName) // leave out blank records (bad records)
+                    {
+                        LRESULT index = SendMessageA(hCombo1, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
+                        if (index != CB_ERR && index != CB_ERRSPACE)
+                            SendMessage(hCombo1, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
+                    }
+            }
+        }
+        break;
+
+    case WM_PAINT: 
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hDlg, &ps);
+            int sp = SLIDER_RNG_MAX - (int)SendMessage(GetDlgItem(hDlg, IDC_SLIDERDT), TBM_GETPOS, 0, 0);
+
+            // set up points for clipping 
+            HWND hItem = GetDlgItem(hDlg, IDC_STATIC_P2);
+            RECT rectW;
+            GetWindowRect(hItem, &rectW);
+            POINT pt1 = { rectW.left, rectW.top };
+            POINT pt2 = { rectW.right, rectW.bottom };
+            ScreenToClient(hDlg, &pt1);
+            ScreenToClient(hDlg, &pt2);
+            HRGN hRgn = CreateRectRgn(pt1.x, pt1.y, pt2.x, pt2.y);
+            SelectClipRgn(hdc, hRgn);
+
+            {
+                HPEN hPen = 0;
+                HBRUSH hBr = 0;
+                bool bHideDst = IsDlgButtonChecked(hDlg, IDC_HIDEDST) == BST_CHECKED;
+                bool bHideSrc = IsDlgButtonChecked(hDlg, IDC_HIDESRC) == BST_CHECKED;
+                
+                // Create a memory DC compatible with the window's DC to avoid flicker
+                RECT rectClientRect; 
+                GetClientRect(hItem, &rectClientRect);
+                HDC hdcMem = CreateCompatibleDC(hdc);
+                HBITMAP hbmMem = CreateCompatibleBitmap(hdc, rectClientRect.right - rectClientRect.left, rectClientRect.bottom - rectClientRect.top);
+                HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
+                _drawblkbkg(hdcMem, pt1, pt2);
+
+                // TODO
+
+                // Copy the off-screen buffer to the window's DC
+                BitBlt(hdc, 0, 0, rectClientRect.right, rectClientRect.bottom, hdcMem, 0, 0, SRCCOPY);
+
+                // Clean up
+                SelectObject(hdcMem, hOld);
+                DeleteObject(hbmMem);
+                DeleteDC(hdcMem);
+            }
+
+            SelectClipRgn(hdc, NULL);
+            DeleteObject(hRgn);
+            EndPaint(hDlg, &ps);
+            return TRUE;
+        }
+    }
+
+    return (INT_PTR)FALSE;
+}
