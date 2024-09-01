@@ -59,7 +59,7 @@ extern CEsp* pEspDst;
 extern HWND hMainWnd;
 
 
-void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const std::string str)
+void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const std::string str, bool bAddCircle = false)
 {
     size_t fontSize = 15;
 
@@ -81,7 +81,11 @@ void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const 
     SetBkMode(hdc, TRANSPARENT);
 
     // Convert std::string to std::wstring
-    std::wstring wstr = strToWstr(str);
+
+    std::wstring wstr;
+    if (bAddCircle)
+        wstr =  L'\u25EF'; // Unicode for LARGE CIRCLE
+    wstr += L" " + strToWstr(str);
     SIZE textSize;
     GetTextExtentPoint32(hdc, wstr.c_str(), static_cast<int>(wstr.length()), &textSize);
     int rectCenterY = (top + bottom) / 2;
@@ -537,17 +541,18 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
 // Star map dialog
 std::vector<CEsp::PlanetPlotData> pmap_oplots;
-double pmap_min = std::numeric_limits<double>::min();
-double pmap_max = std::numeric_limits<double>::max();
+double pmap_min = std::numeric_limits<double>::max();
+double pmap_max = std::numeric_limits<double>::min();
 INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
     case WM_INITDIALOG:
         {
             HWND hCombo = GetDlgItem(hDlg, IDC_COMBO2);
-            LRESULT index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Source");
-            index = SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Destination");
-            //SendMessage(hCombo, CB_SETCURSEL, index, 0);
+            SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Source");
+            SendMessageA(hCombo, CB_ADDSTRING, 0, (LPARAM)"Destination");
+            SendMessage(hCombo, CB_SETCURSEL, 0, 0);
+            PostMessageA(hDlg, WM_COMMAND, MAKEWPARAM(IDC_COMBO2, CBN_SELCHANGE), (LPARAM)hCombo);
 
             HWND hSlider = GetDlgItem(hDlg, IDC_SLIDERDT);
             SendMessage(hSlider, TBM_SETRANGE, TRUE, MAKELPARAM(1, SLIDER_RNG_MAX-1));
@@ -631,20 +636,23 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
             {
                 HWND hCombo1 = GetDlgItem(hDlg, IDC_COMBO1);
                 LRESULT selectedStarIdx = SendMessage(hCombo1, CB_GETCURSEL, 0, 0);
-
-                // Populate Combo boxes
-                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
-                if (selectedIndex == 0)
+                if (selectedStarIdx != CB_ERR)
                 {
-                    CEsp::BasicInfoRec oBasicInfoStar;
-                    pEspSrc->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
-                    pEspSrc->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
-                }
-                else
-                {
-                    CEsp::BasicInfoRec oBasicInfoStar;
-                    pEspDst->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
-                    pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                    size_t iIdx = (size_t) SendMessage(hCombo1, CB_GETITEMDATA, (WPARAM)selectedStarIdx, 0);
+                    // Populate Combo boxes
+                    std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                    if (selectedIndex == 0)
+                    {
+                        CEsp::BasicInfoRec oBasicInfoStar;
+                        pEspSrc->getBasicInfo(CEsp::eESP_STDT, iIdx, oBasicInfoStar);
+                        pEspSrc->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                    }
+                    else
+                    {
+                        CEsp::BasicInfoRec oBasicInfoStar;
+                        pEspDst->getBasicInfo(CEsp::eESP_STDT, iIdx, oBasicInfoStar);
+                        pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                    }
                 }
                 _invalidDlgitem(hDlg, IDC_STATIC_P2);
             }
@@ -708,14 +716,19 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                 _drawblkbkg(hdcMem, pt1, pt2);
 
                 // TODO
-                int x = 50;
-                int top = 100;
-                for (auto& oPlot : pmap_oplots)
+                if (pmap_oplots.size())
                 {
-                    // TODO
-                    DrawSmallText(hdcMem, 1, x, top, top + 30, oPlot.m_strName);
-                    x += 40;
-                    top += 20;
+                    int top = 100;
+                    int istarsize = 30;
+                    double adjust = static_cast<double>((rectW.right - rectW.left) - istarsize) / (pmap_max - pmap_min);
+                    Ellipse(hdcMem, pt1.x-istarsize,  pt1.y-istarsize, pt1.x+istarsize, pt1.y+istarsize);  
+                    for (auto& oPlot : pmap_oplots)
+                    {
+                        double fx = oPlot.m_fPerihelion * adjust;
+                        int rx = static_cast<int>(fx);
+                        DrawSmallText(hdcMem, 1, istarsize + pt1.x + rx, top, top + 30, oPlot.m_strName, true);
+                        top += 20;
+                    }
                 }
 
                 // Copy the off-screen buffer to the window's DC
