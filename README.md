@@ -25,6 +25,7 @@ IMPORTANT - This is an early release with limited testing. Beware if you use it 
 
 ### Limitations:
 1. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
+2. The planet dialog includes an option to set th new planets position in the star system. This is currently not implemented. You can change the position in the creation kit if required.
 
 ### Use: 
 1. Start the app. You will need to have a ESP to work on as your destination. This can be something created from a small change in the creation kit and then saving it.
