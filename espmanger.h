@@ -163,6 +163,17 @@ public:
         std::string m_strStarName;
     };
 
+     // For ploting data on planet map
+    struct PlanetPlotData
+    {
+        // TODO need planet size
+        PlanetPlotData() :m_iPlanetIdx(0), m_fPerihelion(0.0f), m_strName("") {}
+        PlanetPlotData(size_t iPlanetIdx, double fPerihelion, std::string strName) : m_iPlanetIdx(m_iPlanetIdx), m_fPerihelion(fPerihelion), m_strName(strName) {}
+        double m_fPerihelion;
+        std::string m_strName;
+        size_t m_iPlanetIdx;
+    };
+
 private:
     int no_op() { int a = 0; int b = 1; return a + b; }
 
@@ -873,7 +884,8 @@ public:
     void dumpPlanetPositions(size_t iStarIdx, std::string& strOut);
 
 
-    // for star map
+    // for maps
+    void getPlanetPerihelion(size_t iStarIdx, std::vector<PlanetPlotData>& oPlanetPlots, double& min, double& max);
     float calcDist(const fPos& p1, const fPos& p2);
     void getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos);
     void getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);

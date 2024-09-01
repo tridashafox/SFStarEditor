@@ -536,6 +536,9 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
 
 
 // Star map dialog
+std::vector<CEsp::PlanetPlotData> pmap_oplots;
+double pmap_min = std::numeric_limits<double>::min();
+double pmap_max = std::numeric_limits<double>::max();
 INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {
@@ -619,6 +622,34 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
             return TRUE;
         }
         else
+        if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO1)
+        {
+            HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
+            LRESULT selectedIndex = SendMessage(hCombo2, CB_GETCURSEL, 0, 0);
+
+            if ((pEspSrc && selectedIndex == 0) || (pEspDst && selectedIndex == 1))
+            {
+                HWND hCombo1 = GetDlgItem(hDlg, IDC_COMBO1);
+                LRESULT selectedStarIdx = SendMessage(hCombo1, CB_GETCURSEL, 0, 0);
+
+                // Populate Combo boxes
+                std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
+                if (selectedIndex == 0)
+                {
+                    CEsp::BasicInfoRec oBasicInfoStar;
+                    pEspSrc->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
+                    pEspSrc->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                }
+                else
+                {
+                    CEsp::BasicInfoRec oBasicInfoStar;
+                    pEspSrc->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
+                    pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                }
+                _invalidDlgitem(hDlg, IDC_STATIC_P2);
+            }
+        }
+        else
         if (HIWORD(wParam) == CBN_SELCHANGE && LOWORD(wParam) == IDC_COMBO2)
         {
             HWND hCombo2 = GetDlgItem(hDlg, IDC_COMBO2);
@@ -628,10 +659,11 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
             {
                 // Populate Combo boxes
                 std::vector<CEsp::BasicInfoRec> oBasicInfoRecs;
-                if (selectedIndex==0)
+                if (selectedIndex == 0)
                     pEspSrc->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs);
-                else 
+                else
                     pEspDst->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs);
+
                 HWND hCombo1 = GetDlgItem(hDlg, IDC_COMBO1);
                 for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
                     if (*oBasicInfo.m_pName) // leave out blank records (bad records)
@@ -676,6 +708,15 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                 _drawblkbkg(hdcMem, pt1, pt2);
 
                 // TODO
+                int x = 50;
+                int top = 100;
+                for (auto& oPlot : pmap_oplots)
+                {
+                    // TODO
+                    DrawSmallText(hdcMem, 1, x, top, top + 30, oPlot.m_strName);
+                    x += 40;
+                    top += 20;
+                }
 
                 // Copy the off-screen buffer to the window's DC
                 BitBlt(hdc, 0, 0, rectClientRect.right, rectClientRect.bottom, hdcMem, 0, 0, SRCCOPY);

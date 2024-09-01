@@ -410,6 +410,7 @@ CEsp::BasicInfoRec CEsp::_makeBasicPlanetRec(const size_t iIdx)
     if (!bisMoon && iPrimaryIdx < m_stdts.size()) // find the lvls if valid primary index
         findLocInfo(m_stdts[iPrimaryIdx], iPlayerLvl, iPlayerLvlMax, iFaction);
 
+
     return BasicInfoRec(eESP_PNDT,
         (const char*)&m_pndts[iIdx].m_pEdid->m_name,
         (const char*)&m_pndts[iIdx].m_pAnam->m_aname,
@@ -667,6 +668,28 @@ CEsp::fPos CEsp::posSwap(const CEsp::fPos& oOrgPos, CEsp::POSSWAP eSwapXZ)
     // reverse them so they plot correctly on screen axis
     oPos = fPos(-oPos.m_xPos, -oPos.m_yPos, -oPos.m_zPos);
     return oPos;
+}
+
+void CEsp::getPlanetPerihelion(size_t iStarIdx, std::vector<CEsp::PlanetPlotData>& oPlanetPlots, double & min, double & max)
+{
+    oPlanetPlots.clear();
+    std::vector<BasicInfoRec> oBasicInfoRecs;
+    getBasicInfoRecsOrbitingPrimary(eESP_STDT, iStarIdx, oBasicInfoRecs, false, true);
+
+    for (const BasicInfoRec& oBasicInfo : oBasicInfoRecs)
+    {
+        double fperihelion = m_pndts[oBasicInfo.m_iIdx].m_pHnam3->m_perihelion;
+
+        // Set min and max
+        if (fperihelion < min) min = fperihelion;
+        if (fperihelion> max) max = fperihelion;
+
+        oPlanetPlots.push_back(PlanetPlotData(oBasicInfo.m_iIdx, fperihelion, oBasicInfo.m_pAName));
+    }
+
+    // sort by distance
+    std::sort(oPlanetPlots.begin(), oPlanetPlots.end(),
+        [](const PlanetPlotData& a, const PlanetPlotData& b) { return a.m_fPerihelion < b.m_fPerihelion; });
 }
 
 

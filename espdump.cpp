@@ -45,7 +45,8 @@ std::string CEsp::_dumpStdt(const CEsp::STDTrec& oRec)
         + std::format("] [Location: ({},{},{})]", oRec.getfPos().m_xPos, oRec.getfPos().m_yPos, oRec.getfPos().m_zPos)
         + std::format(" [StarSystem: 0x{:08X}]", oRec.m_pDnam->m_systemId)
         + "[CatalogID: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pCatalogID) + "] "
-        + "[SpectralClass: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pSpectralClass) + "] ";
+        + "[SpectralClass: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pSpectralClass) + "] "
+        + (oRec.m_pBGSStarDataCompInfo ? "[Radius: " + std::to_string(oRec.m_pBGSStarDataCompInfo->m_Radius) + "]" : "");
     str += _dumpComps(oRec.m_oComp);
     return str;
 }
