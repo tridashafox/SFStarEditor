@@ -643,7 +643,7 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                 else
                 {
                     CEsp::BasicInfoRec oBasicInfoStar;
-                    pEspSrc->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
+                    pEspDst->getBasicInfo(CEsp::eESP_STDT, (size_t)selectedStarIdx, oBasicInfoStar);
                     pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
                 }
                 _invalidDlgitem(hDlg, IDC_STATIC_P2);
