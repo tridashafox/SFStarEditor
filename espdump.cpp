@@ -41,9 +41,11 @@ std::string CEsp::_dumpStdt(const CEsp::STDTrec& oRec)
     std::string strname((char*)&oRec.m_pEdid->m_name);  if (strname.empty()) strname = "(none)";
     std::string stranam((char*)&oRec.m_pAnam->m_aname); if (stranam.empty()) stranam = "(none)";
     std::string str = std::string(pTagBuff) + std::format(" [0x{:08X}]", oRec.m_pHdr->m_formid) + " [Size: "
-        + std::format("0x{:08X}", oRec.m_pHdr->m_size) + "] [NAME: " + strname + "] [ANAM: " + stranam 
+        + std::format("0x{:08X}", oRec.m_pHdr->m_size) + "] [NAME: " + strname + "] [ANAM: " + stranam
         + std::format("] [Location: ({},{},{})]", oRec.getfPos().m_xPos, oRec.getfPos().m_yPos, oRec.getfPos().m_zPos)
-        + std::format(" [StarSystem: 0x{:08X}]", oRec.m_pDnam->m_systemId);
+        + std::format(" [StarSystem: 0x{:08X}]", oRec.m_pDnam->m_systemId)
+        + "[CatalogID: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pCatalogID) + "] "
+        + "[SpectralClass: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pSpectralClass) + "] ";
     str += _dumpComps(oRec.m_oComp);
     return str;
 }
@@ -60,8 +62,8 @@ std::string CEsp::_dumpPndt(const CEsp::PNDTrec& oRec)
         + std::format("] [StarSystem: 0x{:08X}]", oRec.m_pGnam->m_systemId)
         + " [perihelion: " + std::to_string(oRec.m_pHnam3->m_perihelion) + "]";
     for (int i = 0; i < NUMHNAMSTRINGS; i++)
-        if (oRec.m_oHnam2.m_oStrings[i].m_size && oRec.m_oHnam2.m_oStrings[i].m_pString && *oRec.m_oHnam2.m_oStrings[i].m_pString)
-            str += " [" + PNDTHnam2StringLabel[i] + ": " + std::string(oRec.m_oHnam2.m_oStrings[i].m_pString) + "]";
+        if (oRec.m_oHnam2.m_Strings[i] && oRec.m_oHnam2.m_Strings[i]->m_size)
+            str += " [" + PNDTHnam2StringLabel[i] + ": " + std::string(&oRec.m_oHnam2.m_Strings[i]->m_string) + "]";
     str += _dumpComps(oRec.m_oComp);
     return str;
 }

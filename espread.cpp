@@ -133,6 +133,27 @@ bool CEsp::isBadPosition(const CEsp::fPos& oPos)
     return false;
 }
 
+void CEsp::_readLongString(const TES4LongStringOv* &pString, const char*& searchPtr, const char*& endPtr)
+{
+    if (BLEFT >= sizeof(TES4LongStringOv))
+    {
+        pString = reinterpret_cast<const TES4LongStringOv*>(searchPtr);
+        searchPtr += sizeof(pString->m_size);
+        searchPtr += pString->m_size;
+    }
+}
+
+void CEsp::_readCharBuff(const TES4CharBuffOv* &pCharBuff, const char*& searchPtr, const char*& endPtr)
+{
+    if (BLEFT >= sizeof(TES4CharBuffOv))
+    {
+        pCharBuff = reinterpret_cast<const TES4CharBuffOv*>(searchPtr);
+        searchPtr += sizeof(pCharBuff->m_size);
+        searchPtr += pCharBuff->m_size;
+    }
+}
+
+
 // Handle Block records used to store components
 // returns true if found a missing End Block marker
 bool CEsp::_readBFCBtoBFBE(const char*& searchPtr, const char*& endPtr,  std::vector<CEsp::COMPRec> &oComp)

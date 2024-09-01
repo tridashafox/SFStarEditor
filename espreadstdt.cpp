@@ -2,6 +2,28 @@
 
 // Read star records stdt
 
+// extract specifics of a componet that is of interest
+// TOOD need generic way todo this
+void CEsp::_extractCompOfInterest(STDTrec& oRec, const char* &endPtr)
+{
+    for (auto& oComp : oRec.m_oComp)
+        if (oComp.m_pBfcbName && oComp.m_pBfcbName->m_size && oComp.m_pBfcbName->m_name)
+        {
+            const char *pstrname = reinterpret_cast<const char*>(&oComp.m_pBfcbName->m_name);
+            std::string strName = std::string(pstrname);
+            if (strName == "BGSStarDataComponent_Component")
+            {
+                const char* psearchptr = reinterpret_cast<const char*>(&oComp.m_pBfcbData->m_data);
+                _readCharBuff(oRec.m_oBGSStarDataCompStrings.m_pCatalogID, psearchptr, endPtr);
+                _readCharBuff(oRec.m_oBGSStarDataCompStrings.m_pSpectralClass, psearchptr, endPtr);
+
+                if (psearchptr + sizeof(STDT_BGSStarDataComponent3Ov) <=endPtr)
+                    oRec.m_pBGSStarDataCompInfo = reinterpret_cast<const STDT_BGSStarDataComponent3Ov*>(psearchptr);
+                break;
+            }
+        }
+}
+
 void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const char* &endPtr)
 {
     size_t taglen = 4;
@@ -9,6 +31,7 @@ void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const cha
     oRec.m_pBnam = &BADSTDTBNAMREC;
     oRec.m_pDnam = &BADSTDTDNAMREC;
     oRec.m_pEdid = &BADEDIDREC;
+    oRec.m_pBGSStarDataCompInfo = &BADBGSSTARDATACOMP3REC;
     oRec.m_isBad = true;
     oRec.m_isMissingMatchingBfce = false;
     oRec.m_oComp.clear();
@@ -79,6 +102,9 @@ void CEsp::_dostdt_op_findparts(STDTrec& oRec, const char* &searchPtr, const cha
         searchPtr++;
     }
 
+
+    // pull out details of any components we are intersted in
+    _extractCompOfInterest(oRec, endPtr);
 
     // Check if record okay
     if (oRec.m_pEdid->m_size && oRec.m_pEdid->m_name && oRec.m_pAnam->m_size && oRec.m_pAnam->m_aname && oRec.m_pBnam->m_size && oRec.m_pDnam->m_size &&

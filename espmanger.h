@@ -222,7 +222,23 @@ private:
         uint16_t m_versnInfo2;
         uint16_t m_versnInfo3;
     };
-    const TES4HdrOv  BADTES4HDRREC = TES4HdrOv();
+    const TES4HdrOv BADTES4HDRREC = TES4HdrOv();
+
+    struct TES4LongStringOv
+    {
+        TES4LongStringOv() { memset(this, 0, sizeof(*this)); }
+        uint32_t m_size;
+        char m_string; // start of string ends with '\0'
+    };
+    const TES4LongStringOv BADLONGSTRING = TES4LongStringOv();
+
+    struct TES4CharBuffOv
+    {
+        TES4CharBuffOv() { memset(this, 0, sizeof(*this)); }
+        uint32_t m_size;
+        char m_string; // start of char buffer, does NOT terminate with '\0' size defines the length
+    };
+    const TES4CharBuffOv BADCHARBUFF = TES4CharBuffOv();
 
     struct HEDRHdrOv {
         HEDRHdrOv() { memset(this, 0, sizeof(*this)); }
@@ -263,7 +279,7 @@ private:
         BFCBDatarecOv() { memset(this, 0, sizeof(*this)); }
         char m_DATAtag[4];
         uint16_t m_size;
-        uint8_t m_name; // first byte in array of data
+        uint8_t m_data; // first byte in array of data
     };
     const BFCBDatarecOv BADBFCBDATAREC = BFCBDatarecOv();
 
@@ -378,6 +394,35 @@ private:
     };
     const STDTDnamOv BADSTDTDNAMREC = STDTDnamOv();
 
+    // Some of the componets in the component list that are of interest
+    // TODO - need a general handler that can process the generic component data records and map them to specific ovs
+    struct STDT_BGSStarDataComponent1Ov
+    {
+        STDT_BGSStarDataComponent1Ov() { memset(this, 0, sizeof(*this)); }
+        char m_DATAtag[4];
+        uint16_t m_size;
+    };
+    const STDT_BGSStarDataComponent1Ov BADBGSSTARDATACOMP1REC = STDT_BGSStarDataComponent1Ov();
+
+    struct STDT_BGSStarDataComponent2Rec
+    {
+        const TES4CharBuffOv *m_pCatalogID;
+        const TES4CharBuffOv *m_pSpectralClass;
+    };
+
+    struct STDT_BGSStarDataComponent3Ov
+    {
+        STDT_BGSStarDataComponent3Ov() { memset(this, 0, sizeof(*this)); }
+        float m_Mass;
+        float m_InnerHabzone;
+        float m_OuterHabszone;
+        uint32_t m_HIP;
+        uint32_t m_Radius;
+        uint32_t m_tempK;
+        TES4LongStringOv m_oSpectralClass;
+    };
+    const STDT_BGSStarDataComponent3Ov BADBGSSTARDATACOMP3REC = STDT_BGSStarDataComponent3Ov();
+
     // Star - STDT record which pulls the above togather in one record which references the others build during loading or refeshed after mods
     struct STDTrec {
         bool m_isBad;
@@ -385,6 +430,8 @@ private:
         const STDTHdrOv* m_pHdr;
         const EDIDrecOv* m_pEdid;
         std::vector<COMPRec>m_oComp; // set of components
+        STDT_BGSStarDataComponent2Rec m_oBGSStarDataCompStrings;
+        const STDT_BGSStarDataComponent3Ov* m_pBGSStarDataCompInfo;
         // TODO: other records
         const STDTAnamOv* m_pAnam;
         const STDTBnamOv* m_pBnam;
@@ -436,7 +483,7 @@ private:
     };
     const PNDTGnamOv BADPNDTGNAMREC = PNDTGnamOv();
 
-    struct PNDTHnam1Ov
+    struct PNDTHnam1Ov // made up of 3 parts due to varible section in the middle of the PNDT HNAM record PNDTHnam1Ov-[PNDTHnam2Rec]-PNDTHnam3Ov
     {
         PNDTHnam1Ov() { memset(this, 0, sizeof(*this)); }
         uint8_t m_HNAMtag[4];
@@ -447,15 +494,11 @@ private:
 
     #define NUMHNAMSTRINGS 8
     const std::string PNDTHnam2StringLabel[NUMHNAMSTRINGS] = { "SpectralClass", "CatalogueID", "Life", "Magnetoshere", "Mass(Kg)", "Type", "SettledStar", "Special" };
-    struct PNDTHnam2String
-    {
-        uint32_t m_size;
-        const char* m_pString;
-    };
+
     struct PNDTHnam2Rec // Not a OV: Varible lenght structure of strings in the middle of PNDT HNAM
     {
         PNDTHnam2Rec() { memset(this, 0, sizeof(*this)); }
-        PNDTHnam2String m_oStrings[NUMHNAMSTRINGS];
+        const TES4LongStringOv *m_Strings[NUMHNAMSTRINGS];
     };
     struct PNDTHnam3Ov
     {
@@ -641,6 +684,16 @@ public:
     bool isESM() const                  { return m_strMasterFile.empty(); }
     size_t getMissingBfceCount() const  { return m_MissingBfceMap.size(); }
 
+
+    std::string cbToStr(const TES4CharBuffOv* pCharBuff)
+    {
+        std::string strOut;
+        if (pCharBuff && pCharBuff->m_size)
+            for (uint32_t i = 0; i < pCharBuff->m_size; i++)
+                strOut += (&(pCharBuff->m_string))[i];
+        return strOut;
+    }
+
     void setNewFname(const std::wstring &wstrNewFileName) 
     { 
         m_wstrfilename = wstrNewFileName; 
@@ -724,6 +777,8 @@ private:
     size_t findPrimaryIdx(size_t iIdx, fPos& oSystemPosition);
     size_t findPndtsFromStdt(size_t iIdx, std::vector<size_t>& oFndPndts);
     bool isBadPosition(const fPos& oPos);
+    void _readCharBuff(const TES4CharBuffOv*& pCharBuff, const char*& searchPtr, const char*& endPtr);
+    void _readLongString(const TES4LongStringOv*& pString, const char*& searchPtr, const char*& endPtr);
     bool _readBFCBtoBFBE(const char*& searchPtr, const char*& endPtr, std::vector<COMPRec>& oComp);
     void _doBfcbquickskip(const char*& searchPtr, const char*& endPtr);
     void _dobuildsubrecs_mt(const std::vector<const GRUPHdrOv*>& vgrps, const char* searchPatt, ESPRECTYPE eType);
@@ -740,6 +795,7 @@ private:
     void dopndt_op_mt();
 
     // stars
+    void _extractCompOfInterest(STDTrec& oRec, const char* &endPtr);
     BasicInfoRec _makeBasicStarRec(const size_t iIdx);
     void _dostdt_op_findparts(STDTrec& oRec, const char*& searchPtr, const char*& endPtr);
     void process_stdt_ranged_op_mt(size_t start, size_t end);

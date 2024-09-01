@@ -2,47 +2,6 @@
 
 // Read planets PNDT
 
-// Function to compress the data and store it in the output parameter
-bool CEsp::compress_data(const char* input_data, size_t input_size, std::vector<char>& compressed_data) 
-{
-    // Initialize the compressor object
-    z_stream deflateStream;
-    deflateStream.zalloc = Z_NULL;
-    deflateStream.zfree = Z_NULL;
-    deflateStream.opaque = Z_NULL;
-    deflateStream.avail_in = static_cast<uInt>(input_size); // Cast input_size to uInt
-    deflateStream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input_data));
-
-    int ret = deflateInit(&deflateStream, Z_BEST_COMPRESSION);
-    if (ret != Z_OK) {
-        std::cerr << "Failed to initialize compression stream." << std::endl;
-        return false;
-    }
-
-    // Reserve initial space for compressed data
-    uLong combound = static_cast<uLong>(input_size);
-    compressed_data.resize(compressBound(combound)); // Estimate the maximum possible compressed size
-
-    deflateStream.next_out = reinterpret_cast<Bytef*>(&compressed_data[0]);
-    deflateStream.avail_out = static_cast<uInt>(compressed_data.size());
-
-    // Compress the data
-    ret = deflate(&deflateStream, Z_FINISH);
-    if (ret != Z_STREAM_END) {
-        std::cerr << "Failed to compress data." << std::endl;
-        deflateEnd(&deflateStream);
-        return false;
-    }
-
-    // Finalize compression
-    deflateEnd(&deflateStream);
-
-    // Resize the buffer to the actual compressed size
-    compressed_data.resize(deflateStream.total_out);
-
-    return true;
-}
-
 // Function to decompress the data and store it in the output parameter
 bool CEsp::decompress_data(const char* compressed_data, size_t compressed_size, std::vector<char>& decompressed_data, size_t decompressed_size) 
 {
@@ -113,14 +72,9 @@ void CEsp::_buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& en
 // build list of strings are in the middle of the PNDT HNAM 
 void CEsp::_buildHnamRec(PNDTHnam2Rec& oHnam2, const char*& searchPtr, const char*& endPtr)
 {
-    for (size_t i=0; i<NUMHNAMSTRINGS && searchPtr < endPtr; i++)
-        if (BLEFT >= sizeof(PNDTHnam2String))
-        {
-            oHnam2.m_oStrings[i].m_size = *reinterpret_cast<const uint32_t*>(searchPtr);
-            searchPtr += sizeof(uint32_t);
-            oHnam2.m_oStrings[i].m_pString = searchPtr;
-            searchPtr += oHnam2.m_oStrings[i].m_size;
-        }
+    for (size_t i = 0; i < NUMHNAMSTRINGS && searchPtr < endPtr; i++)
+        if (BLEFT >= sizeof(TES4LongStringOv))
+            _readLongString(oHnam2.m_Strings[i], searchPtr, endPtr);
 }
 
 void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr)
