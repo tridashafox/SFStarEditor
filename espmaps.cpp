@@ -673,6 +673,7 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                     pEspDst->getBasicInfoRecs(CEsp::eESP_STDT, oBasicInfoRecs);
 
                 HWND hCombo1 = GetDlgItem(hDlg, IDC_COMBO1);
+                SendMessage(hCombo1, CB_RESETCONTENT, 0, 0);
                 for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
                     if (*oBasicInfo.m_pName) // leave out blank records (bad records)
                     {
