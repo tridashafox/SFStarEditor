@@ -47,10 +47,12 @@ void CEsp::_buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& en
 {
     size_t taglen = 4;
 
+    #ifdef _DEBUG
     if (oRec.m_pHdr->m_formid == FID_Debug_ClassMPlanet)
     {
         CEsp::no_op(); // debugging
     }
+    #endif
 
     if (BLEFT >= sizeof(PNDTCnamOv))
     { // CNAM records in PNDT
@@ -118,10 +120,12 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
             {
                 if (BLEFT >= sizeof(BFCBrecOv) + sizeof(BFCBDatarecOv))
                 {
+                    #ifdef _DEBUG
                     if (oRec.m_pHdr->m_formid == FID_Debug_ClassMPlanet)
                     {
                         CEsp::no_op(); // debugging
                     }
+                    #endif
 
                     oRec.m_isMissingMatchingBfce = _readBFCBtoBFBE(searchPtr, endPtr, oRec.m_oComp);
                     continue; 

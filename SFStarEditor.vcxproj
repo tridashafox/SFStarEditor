@@ -137,7 +137,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="espread.cpp" />
-    <ClCompile Include="espdump.cpp" />
+    <ClCompile Include="espinfsh.cpp" />
     <ClCompile Include="espreadbiom.cpp" />
     <ClCompile Include="espwrite.cpp" />
     <ClCompile Include="espreadlctn.cpp" />

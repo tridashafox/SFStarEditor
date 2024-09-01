@@ -947,7 +947,7 @@ CEsp::formid_t CEsp::clonePndt(std::vector<char> &newbuff, const PNDTrec &opndtR
     // Debug will dump the uncompressed data to default downloads directory
     #ifdef _DEBUG
     if (IsDebuggerPresent())
-        _debugDumpVector(oRec.m_decompdata, oBasicInfo.m_pName);
+        _infshVector(oRec.m_decompdata, oBasicInfo.m_pName);
     #endif
 
     // Recompress the compressed buffer in a temp copy then insert it overtop the current compressed buffer

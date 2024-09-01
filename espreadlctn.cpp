@@ -1,7 +1,6 @@
 #include "espmanger.h"
 
 // Read location records LCTN
-
 void CEsp::_dolctn_op_findparts(LCTNrec& oRec, const char* &searchPtr, const char* &endPtr)
 {
     size_t taglen = 4;
@@ -129,13 +128,6 @@ void CEsp::_dolctn_op_findparts(LCTNrec& oRec, const char* &searchPtr, const cha
         searchPtr++;
     }
 
-    // DEBUG interupt
-    // if (oRec.m_pHdr->m_formid==0x3D9E13)
-    // {
-    //    std::string str = _dumpKeywords(oRec.m_pKsiz, oRec.m_pKwda) + "\n";
-    //    dbgout(str);
-    // }
-
     // Check if record okay
     if (oRec.m_pEdid->m_size && oRec.m_pEdid->m_name)
     {   // oRec.m_pAnam->m_size && oRec.m_pAnam->m_aname don't check these many LCTN have this empty
@@ -210,8 +202,6 @@ void CEsp::do_process_lctns()
 {
     // process locations to build location structures for stars/planets
     // universe -> star -> surface/orbital/poi
-  
 
     // TODO if needed
-
 }

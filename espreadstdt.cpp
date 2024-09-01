@@ -3,7 +3,6 @@
 // Read star records stdt
 
 // extract specifics of a componet that is of interest
-// TOOD need generic way todo this
 void CEsp::_extractCompOfInterest(STDTrec& oRec, const char* &endPtr)
 {
     for (auto& oComp : oRec.m_oComp)

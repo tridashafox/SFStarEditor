@@ -833,32 +833,20 @@ bool CEsp::_loadfrombuffer(std::string &strErr)
     m_SystemIDMap.clear();
     m_FmIDMap.clear();
 
-    timept ots = startTC();
     if (!loadhdrs())
     {
         strErr = "Failed to build header structures.";
         return false;
     }
-    endTC("loadhdrs", ots);
 
     // Build the hdrs first
-    ots = startTC();
     do_process_subrecs_mt();
-    endTC("do_process_subrecs_mt", ots);
 
     // Build out records beyond just the header information using multiple threads
-    ots = startTC();
     dostdt_op_mt();
-    endTC("dostdt_op_mt", ots);
-
-    ots = startTC();
     dopndt_op_mt();
-    endTC("dopndt_op_mt", ots);
-
-    ots = startTC();
     dolctn_op_mt();
     do_process_lctns();
-    endTC("dolctn_op_mt", ots);
 
     return true;
 }
@@ -869,10 +857,16 @@ bool CEsp::load(const std::wstring &strFileName, std::string &strErr)
 {
     m_wstrfilename = strFileName;
 
+    #ifdef _DEBUG
     timept ots = startTC();
+    #endif
+
     if (!loadfile(strErr))
         return false;
+
+    #ifdef _DEBUG
     endTC("loadfile", ots);
+    #endif
 
     if (!_loadfrombuffer(strErr))
         return false;

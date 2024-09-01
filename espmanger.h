@@ -175,7 +175,9 @@ public:
     };
 
 private:
+    #ifdef _DEBUG
     int no_op() { int a = 0; int b = 1; return a + b; }
+    #endif
 
     void rlc(std::string& str) // for basic formating of lists 
     {
@@ -184,8 +186,14 @@ private:
     }
 
     // For debugging and timing
-    void dbgout(const std::string& message) { OutputDebugStringA(message.c_str()); }
+    void dbgout(const std::string& message) 
+    { 
+        #ifdef _DEBUG
+        OutputDebugStringA(message.c_str()); 
+        #endif        
+    }
 
+    #ifdef _DEBUG
     using timept = std::chrono::high_resolution_clock::time_point;
 
     timept startTC()
@@ -201,6 +209,7 @@ private:
         std::string str = pref + ": " + std::to_string(milliseconds) + " ms.\n";
         dbgout(str);
     }
+    #endif
 
     // Overlays (Ov) map over the read file data buffer to avoid data copying for performance and size reasons
     // This means they map directly to the file format of the ESM or ESP file
@@ -826,14 +835,14 @@ private:
     bool _loadfrombuffer(std::string& strErr);
 
     // debuging and info dump
-    void _debugDumpVector(const std::vector<char>& oV, std::string strNamepostfix);
-    std::string _dumpComps(const std::vector<COMPRec>& oComps);
-    std::string _dumpKeywords(const CEsp::KSIZrecOv* pKsiz, const KWDArecOv* pKwda);
-    std::string _dumpStdt(const STDTrec& oRec);
-    std::string _dumpPndt(const PNDTrec& oRec);
-    std::string _dumpLctn(const LCTNrec& oRec);
-    void _dumpToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend);
-    size_t dumpMissingBfceMapRecs(std::vector<std::string>& oOutputs);
+    void _infshVector(const std::vector<char>& oV, std::string strNamepostfix);
+    std::string _infshComps(const std::vector<COMPRec>& oComps);
+    std::string _infshKeywords(const CEsp::KSIZrecOv* pKsiz, const KWDArecOv* pKwda);
+    std::string _infshStdt(const STDTrec& oRec);
+    std::string _infshPndt(const PNDTrec& oRec);
+    std::string _infshLctn(const LCTNrec& oRec);
+    void _infshToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend);
+    size_t infshMissingBfceMapRecs(std::vector<std::string>& oOutputs);
 
     // For general writing data
     formid_t _createNewFormId();
@@ -877,12 +886,12 @@ public:
     void getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<BasicInfoRec>& oBasicInfos, bool bExcludeblanks = false);
 
     // debugging and bad data
-    std::string dumpStats();
-    void dumptofile(const std::string& fileName);
-    size_t dumpBadRecs(std::vector<std::string>& oOutputs);
+    std::string infshStats();
+    void infshtofile(const std::string& fileName);
+    size_t infshBadRecs(std::vector<std::string>& oOutputs);
     bool checkformissingbiom(const std::wstring& wstrSrcFilePath, std::vector<std::string>& strErrs);
-    void dumpPlanetPositions(size_t iStarIdx, std::string& strOut);
-
+    void infshPlanetPositions(size_t iStarIdx, std::string& strOut);
+    std::string infshEspData();
 
     // for maps
     void getPlanetPerihelion(size_t iStarIdx, std::vector<PlanetPlotData>& oPlanetPlots, double& min, double& max);

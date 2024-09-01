@@ -28,9 +28,6 @@
 #include <cmath>
 #include <regex>
 
-#pragma comment(lib, "comctl32.lib")  // Link against the common controls library
-#pragma comment(lib, "Shcore.lib")
-
 #define MAXZOOM 6
 #define MAXTEXTZOOM 2
 #define SCALECORD 1000 // used to scale up star cord system to get better resolution when panning and zooming
@@ -51,6 +48,11 @@ CEsp::fPos stmap_min(0,0,0);
 CEsp::fPos stmap_max(0,0,0);
 CEsp::POSSWAP stmap_eSwap = CEsp::PSWAP_XY;
 CEsp::fPos  stdmap_zoominc(0,0,0);
+
+// for planet map
+std::vector<CEsp::PlanetPlotData> pmap_oplots;
+double pmap_min = std::numeric_limits<double>::max();
+double pmap_max = std::numeric_limits<double>::min();
 
 // externs from espmain
 std::wstring strToWstr(const std::string& str);
@@ -81,7 +83,6 @@ void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const 
     SetBkMode(hdc, TRANSPARENT);
 
     // Convert std::string to std::wstring
-
     std::wstring wstr;
     if (bAddCircle)
         wstr =  L'\u25EF'; // Unicode for LARGE CIRCLE
@@ -539,10 +540,7 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
 }
 
 
-// Star map dialog
-std::vector<CEsp::PlanetPlotData> pmap_oplots;
-double pmap_min = std::numeric_limits<double>::max();
-double pmap_max = std::numeric_limits<double>::min();
+// Planet map dialog
 INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message) {

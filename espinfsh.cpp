@@ -1,8 +1,19 @@
 #include "espmanger.h"
-#include <shlobj.h>  
+#ifdef _DEBUG
 #include <comdef.h>  
+#include <shlobj.h>  
+#pragma comment(lib, "Shcore.lib")
+#endif 
 
-std::string CEsp::_dumpComps(const std::vector<CEsp::COMPRec> &oComps)
+// InfoShow 
+std::string CEsp::infshEspData()
+{
+    std::string strfile = getFnameAsStr() + ".txt";
+    infshtofile(strfile);
+    return strfile;
+}
+
+std::string CEsp::_infshComps(const std::vector<CEsp::COMPRec> &oComps)
 {
     std::string str = " [Comps: count: " + std::to_string(oComps.size()) + " ";
     if (!oComps.empty())
@@ -20,7 +31,7 @@ std::string CEsp::_dumpComps(const std::vector<CEsp::COMPRec> &oComps)
     return str + "]";
 }
 
-std::string CEsp::_dumpKeywords(const CEsp::KSIZrecOv *pKsiz, const CEsp::KWDArecOv *pKwda)
+std::string CEsp::_infshKeywords(const CEsp::KSIZrecOv *pKsiz, const CEsp::KWDArecOv *pKwda)
 {
     std::string str = " [KSIZ: count: " + std::to_string(pKsiz->m_count) + " KWDA: ";
     for (size_t i = 0; i < pKsiz->m_count; ++i)
@@ -33,7 +44,7 @@ std::string CEsp::_dumpKeywords(const CEsp::KSIZrecOv *pKsiz, const CEsp::KWDAre
     return str + "]";
 }
 
-std::string CEsp::_dumpStdt(const CEsp::STDTrec& oRec)
+std::string CEsp::_infshStdt(const CEsp::STDTrec& oRec)
 {
     char pTagBuff[5] = { '\0','\0','\0','\0','\0' };
 
@@ -47,11 +58,11 @@ std::string CEsp::_dumpStdt(const CEsp::STDTrec& oRec)
         + "[CatalogID: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pCatalogID) + "] "
         + "[SpectralClass: " + cbToStr(oRec.m_oBGSStarDataCompStrings.m_pSpectralClass) + "] "
         + (oRec.m_pBGSStarDataCompInfo ? "[Radius: " + std::to_string(oRec.m_pBGSStarDataCompInfo->m_Radius) + "]" : "");
-    str += _dumpComps(oRec.m_oComp);
+    str += _infshComps(oRec.m_oComp);
     return str;
 }
 
-std::string CEsp::_dumpPndt(const CEsp::PNDTrec& oRec)
+std::string CEsp::_infshPndt(const CEsp::PNDTrec& oRec)
 {
     char pTagBuff[5] = { '\0','\0','\0','\0','\0' };
 
@@ -65,11 +76,11 @@ std::string CEsp::_dumpPndt(const CEsp::PNDTrec& oRec)
     for (int i = 0; i < NUMHNAMSTRINGS; i++)
         if (oRec.m_oHnam2.m_Strings[i] && oRec.m_oHnam2.m_Strings[i]->m_size)
             str += " [" + PNDTHnam2StringLabel[i] + ": " + std::string(&oRec.m_oHnam2.m_Strings[i]->m_string) + "]";
-    str += _dumpComps(oRec.m_oComp);
+    str += _infshComps(oRec.m_oComp);
     return str;
 }
 
-std::string CEsp::_dumpLctn(const CEsp::LCTNrec& oRec)
+std::string CEsp::_infshLctn(const CEsp::LCTNrec& oRec)
 {
     char pTagBuff[5] = { '\0','\0','\0','\0','\0' };
 
@@ -88,11 +99,11 @@ std::string CEsp::_dumpLctn(const CEsp::LCTNrec& oRec)
     }
     str += " [DATA: Min level:" + std::to_string(oRec.m_pData->m_playerLvl) + ", Max level: " + std::to_string(oRec.m_pData->m_playerLvlMax) + ", Faction: ";
     str += oRec.m_pData->m_faction ? std::format("0x{:04X}", oRec.m_pData->m_faction) +"]" : "none]";
-    str += _dumpKeywords(oRec.m_pKsiz, oRec.m_pKwda);
+    str += _infshKeywords(oRec.m_pKsiz, oRec.m_pKwda);
     return str;
 }
 
-void CEsp::_debugDumpVector(const std::vector<char>&oV, std::string strNamepostfix)
+void CEsp::_infshVector(const std::vector<char>&oV, std::string strNamepostfix)
 {
     #ifdef _DEBUG
     PWSTR path = nullptr;
@@ -104,7 +115,7 @@ void CEsp::_debugDumpVector(const std::vector<char>&oV, std::string strNamepostf
     CoTaskMemFree(path);
 
     std::string strErr;
-    std::string strDebugOutfn = strpath + "\\DumpVector_" + getFnameRoot() + "_" + strNamepostfix + ".bin";
+    std::string strDebugOutfn = strpath + "\\Vector_" + getFnameRoot() + "_" + strNamepostfix + ".bin";
     std::filesystem::path filePath(strDebugOutfn);
     std::wstring wstrFilename = filePath.wstring();
 
@@ -112,7 +123,7 @@ void CEsp::_debugDumpVector(const std::vector<char>&oV, std::string strNamepostf
     #endif
 }
 
-void CEsp::_dumpToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend = false) 
+void CEsp::_infshToFile(const std::vector<std::string>& oOutputs, const std::string& fileName, bool bAppend = false) 
 {
     // Open the file in write mode
     std::ofstream outFile;
@@ -128,44 +139,44 @@ void CEsp::_dumpToFile(const std::vector<std::string>& oOutputs, const std::stri
     outFile.close();
 }
 
-void CEsp::dumptofile(const std::string& fileName)
+void CEsp::infshtofile(const std::string& fileName)
 {
     std::vector<std::string> oOutputs;
 
     for (size_t i = 0; i < m_stdts.size(); ++i)
-        oOutputs.push_back(_dumpStdt(m_stdts[i]));
+        oOutputs.push_back(_infshStdt(m_stdts[i]));
     for (size_t i = 0; i < m_pndts.size(); ++i)
-        oOutputs.push_back(_dumpPndt(m_pndts[i]));
+        oOutputs.push_back(_infshPndt(m_pndts[i]));
     for (size_t i = 0; i < m_lctns.size(); ++i)
-        oOutputs.push_back(_dumpLctn(m_lctns[i]));
+        oOutputs.push_back(_infshLctn(m_lctns[i]));
 
     std::sort(oOutputs.begin(), oOutputs.end());
-    _dumpToFile(oOutputs, fileName);
+    _infshToFile(oOutputs, fileName);
 
     oOutputs.clear();
-    dumpBadRecs(oOutputs);
+    infshBadRecs(oOutputs);
     if (oOutputs.size())
     {
         std::sort(oOutputs.begin(), oOutputs.end());
         oOutputs.insert(oOutputs.begin(), " ");
         oOutputs.insert(oOutputs.begin(), "Bad records:");
         oOutputs.insert(oOutputs.begin(), "=====================================================");
-        _dumpToFile(oOutputs, fileName, true);
+        _infshToFile(oOutputs, fileName, true);
     }
 
     oOutputs.clear();
-    dumpMissingBfceMapRecs(oOutputs);
+    infshMissingBfceMapRecs(oOutputs);
     if (oOutputs.size())
     {
         std::sort(oOutputs.begin(), oOutputs.end());
         oOutputs.insert(oOutputs.begin(), " ");
         oOutputs.insert(oOutputs.begin(), "Records containg a BFCB with no matching BFCE marker:");
         oOutputs.insert(oOutputs.begin(), "=====================================================");
-        _dumpToFile(oOutputs, fileName, true);
+        _infshToFile(oOutputs, fileName, true);
     }
 }
 
-std::string CEsp::dumpStats()
+std::string CEsp::infshStats()
 {
     CHAR szStatusTextSrc[GENBUFFSIZE]{};
 
@@ -178,7 +189,7 @@ std::string CEsp::dumpStats()
     return std::string(szStatusTextSrc);
 }
 
-size_t CEsp::dumpBadRecs(std::vector<std::string>&oOutputs)
+size_t CEsp::infshBadRecs(std::vector<std::string>&oOutputs)
 {
     oOutputs.clear();
     std::string strpref = "Bad Record Found: ";
@@ -189,15 +200,15 @@ size_t CEsp::dumpBadRecs(std::vector<std::string>&oOutputs)
         switch (ogenrec.m_eType)
         {
             case eESP_STDT:
-                oOutputs.push_back(strpref + _dumpStdt(m_stdts[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshStdt(m_stdts[ogenrec.m_iIdx]));
                 break;
 
             case eESP_PNDT:
-                oOutputs.push_back(strpref + _dumpPndt(m_pndts[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshPndt(m_pndts[ogenrec.m_iIdx]));
                 break;
 
             case eESP_LCTN:
-                oOutputs.push_back(strpref + _dumpLctn(m_lctns[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshLctn(m_lctns[ogenrec.m_iIdx]));
                 break;
         }
     }
@@ -205,7 +216,7 @@ size_t CEsp::dumpBadRecs(std::vector<std::string>&oOutputs)
     return m_BadMap.size();
 }
 
-size_t CEsp::dumpMissingBfceMapRecs(std::vector<std::string>&oOutputs)
+size_t CEsp::infshMissingBfceMapRecs(std::vector<std::string>&oOutputs)
 {
     oOutputs.clear();
     std::string strpref = "Records Missing BFCE ends: ";
@@ -216,15 +227,15 @@ size_t CEsp::dumpMissingBfceMapRecs(std::vector<std::string>&oOutputs)
         switch (ogenrec.m_eType)
         {
             case eESP_STDT:
-                oOutputs.push_back(strpref + _dumpStdt(m_stdts[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshStdt(m_stdts[ogenrec.m_iIdx]));
                 break;
 
             case eESP_PNDT:
-                oOutputs.push_back(strpref + _dumpPndt(m_pndts[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshPndt(m_pndts[ogenrec.m_iIdx]));
                 break;
 
             case eESP_LCTN:
-                oOutputs.push_back(strpref + _dumpLctn(m_lctns[ogenrec.m_iIdx]));
+                oOutputs.push_back(strpref + _infshLctn(m_lctns[ogenrec.m_iIdx]));
                 break;
         }
     }
@@ -232,7 +243,7 @@ size_t CEsp::dumpMissingBfceMapRecs(std::vector<std::string>&oOutputs)
     return m_BadMap.size();
 }
 
-void CEsp::dumpPlanetPositions(size_t iStarIdx, std::string& strOut)
+void CEsp::infshPlanetPositions(size_t iStarIdx, std::string& strOut)
 {
     std::vector<BasicInfoRec> oBasc;
     BasicInfoRec oBasicInfoNewPlanet;

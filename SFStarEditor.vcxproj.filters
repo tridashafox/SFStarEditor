@@ -41,7 +41,7 @@
     <ClCompile Include="sfedmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="espdump.cpp">
+    <ClCompile Include="espinfsh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="espreadstdt.cpp">

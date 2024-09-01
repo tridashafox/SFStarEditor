@@ -6,7 +6,6 @@
 #include <commdlg.h>
 #include <shellscalingapi.h>
 #include <psapi.h>
-#include <shlobj.h>  
 #include <comdef.h>  
 #include <map>
 #include <format>
@@ -29,12 +28,12 @@
 #include <regex>
 
 #pragma comment(lib, "comctl32.lib")  // Link against the common controls library
-#pragma comment(lib, "Shcore.lib")
+#include <shlobj.h>  
+#pragma comment(lib, "Shcore.lib") // for Save As
 
 #include "espmanger.h"
 
 // Forward function declarations
-std::string GetTimeSince(LARGE_INTEGER);
 BOOL OpenFileDialog(HWND, LPWSTR,DWORD, LPWSTR, BOOL);
 ATOM MyRegisterClass(HINSTANCE hInstance);
 BOOL InitInstance(HINSTANCE, int);
@@ -178,8 +177,9 @@ std::string binaryTostr(const char *pcbuff, size_t size)
 // Windows functions
 //////////////////////////////////////////////////////////////////////
 
-std::string GetDownloadsFolderPath() // Dir used for requested dump output
+std::string GetDownloadsFolderPath() // Dir used for requested infsh output
 {
+    #ifdef _DEBUG
     PWSTR path = nullptr;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, NULL, &path)))
     {
@@ -188,30 +188,39 @@ std::string GetDownloadsFolderPath() // Dir used for requested dump output
         CoTaskMemFree(path);
         return downloadsPath;
     }
-
+    #endif
     return "";
 }
 
 std::string GetExecutableDir()
 {
+    std::string directory = ".\\";
+    #ifdef _DEBUG
     WCHAR path[MAX_PATH];
     // Get the full path of the executable
     GetModuleFileName(NULL, path, MAX_PATH);
     std::string fullPath = wcharTostr(path);
-    std::string directory = fullPath.substr(0, fullPath.find_last_of("\\/"));
+    directory = fullPath.substr(0, fullPath.find_last_of("\\/"));
+    #endif
     return directory;
 }
 
+#ifdef _DEBUG
 LARGE_INTEGER GetStartTime()
 {
     LARGE_INTEGER startTime;
     QueryPerformanceCounter(&startTime);
     return startTime;
 }
+#endif
 
 // Get time elapsted for performance debugging
+#ifdef _DEBUG
 std::string GetTimeSince(LARGE_INTEGER startTime)
 {
+    std::string strOut;
+
+    #ifdef _DEBUG
     LARGE_INTEGER frequency;
     LARGE_INTEGER endTime;
 
@@ -221,9 +230,12 @@ std::string GetTimeSince(LARGE_INTEGER startTime)
     double elapsedTime = static_cast<double>(endTime.QuadPart - startTime.QuadPart) / frequency.QuadPart;
     char buffer[64];
     std::snprintf(buffer, sizeof(buffer), "%.4f seconds", elapsedTime);
+    strOut = std::string(buffer);
+    #endif
 
-    return std::string(buffer);
+    return strOut;
 }
+#endif
 
 // Output a string to gui control used for text output, and new line by default
 void OutputStr(const WCHAR* pwchar) { OutputStr(wcharTostr(pwchar)); }
@@ -348,10 +360,12 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
         pEsp = nullptr;
     }
 
-    std::wstring fn = wszfn;
-        
-    std::string strErr;
+    #ifdef _DEBUG
     LARGE_INTEGER liStart = GetStartTime();
+    #endif
+
+    std::wstring fn = wszfn;
+    std::string strErr;
     OutputStr(std::string("Loading ") + wstrtostr(fn) + std::string("..."));
 
 
@@ -364,7 +378,9 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
         return false;
     }
 
+    #ifdef _DEBUG
     OutputStr(std::string("Finished in ") + GetTimeSince(liStart) + ".");
+    #endif
 
     std::string strNumST = std::to_string(pEsp->getNum(CEsp::eESP_STDT));
     std::string strNumPN = std::to_string(pEsp->getNum(CEsp::eESP_PNDT));
@@ -373,7 +389,7 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     if (!pEsp->isESM()) str += " Uses Master file " + pEsp->getMasterFname() + ".";
     OutputStr(str);
     std::vector<std::string> oOutputs;
-    pEsp->dumpBadRecs(oOutputs);
+    pEsp->infshBadRecs(oOutputs);
     for (const std::string& oStr : oOutputs)
         OutputStr(oStr);
     if (pEsp->getMissingBfceCount())
@@ -382,25 +398,12 @@ bool LoadESP(CEsp* &pEsp, LPCWCHAR wszfn)
     return true;
 }
 
-void DebugdumpEspData(CEsp *pEsp, const std::string &pref)
-{
-    if (!pEsp)
-        return;
-    std::string strdir = GetDownloadsFolderPath();
-    if (strdir.empty())
-        strdir = GetExecutableDir();
-    std::filesystem::path pathObj(pEsp->getFname());
-    std::string strfile = toLowerCase(strdir + "\\" + pathObj.filename().string() + ".txt");
-    pEsp->dumptofile(strfile);
-    OutputStr(pref + " data dumped to file: " + strfile);
-}
-
 void UpdateStatusBar()
 {
     std::string strSrc, strDst, strMem;
 
-    if (pEspSrc) strSrc = "[" + pEspSrc->getFnameRoot()+ " " + pEspSrc->dumpStats() + "]";
-    if (pEspDst) strDst = "[" + pEspDst->getFnameRoot()+ " " + pEspDst->dumpStats() + "]";
+    if (pEspSrc) strSrc = "[" + pEspSrc->getFnameRoot()+ " " + pEspSrc->infshStats() + "]";
+    if (pEspDst) strDst = "[" + pEspDst->getFnameRoot()+ " " + pEspDst->infshStats() + "]";
 
     PROCESS_MEMORY_COUNTERS_EX pmc{};
     HANDLE hProcess = GetCurrentProcess();
@@ -631,6 +634,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 OutputStrW(L"* USE AT OWN RISK *");
                 OutputStrW(L" ");
 
+                #ifdef _DEBUG
                 if (IsDebuggerPresent()) // Shortcut while testing
                 {
                     std::wstring wstrSrc = L"D:\\SteamLibrary\\steamapps\\common\\Starfield\\Data\\starfield.esm";
@@ -639,19 +643,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     LoadESP(pEspDst, wstrDst.c_str());
                     UpdateStatusBar();
                     UpdateMenuWithFilename(hWnd, wstrDst.c_str());
-                    
-                    /* slow op to check all bioms can be found in archive - debugging
-                    std::vector<std::string> strErrs;
-                    std::wstring wstrArchivename = _buildSrcbiomFileName();
-                    if (!pEspSrc->checkformissingbiom(wstrArchivename, strErrs))
-                        OutputStr("Found " + std::to_string(strErrs.size()) + " missing biom files in archive");
-                    */
                 }
-                else
-                {
-                    // RemoveMenu(GetMenu(hWnd), ID_DEBUG_DUMPDATA, MF_BYCOMMAND);
-                    // DrawMenuBar(GetActiveWindow());
-                }
+                #endif  
                 return 0;
             }
             break;
@@ -692,9 +685,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 switch (wmId)
                 {
                     case ID_DEBUG_DUMPDATA:
-                        DebugdumpEspData(pEspSrc, "Source");
-                        DebugdumpEspData(pEspDst, "Destination");
-                        break;
+                        {
+                            if (!pEspSrc || !pEspDst)
+                            {
+                                MessageBox(hWnd, L"Please select a source and destination file so data data can be logged to a .txt file.", L"Error", MB_OK | MB_ICONERROR);
+                                break;
+                            }
+                            std::string strfile;
+                            strfile = pEspSrc->infshEspData();
+                            OutputStr("Source data saved to file: " + strfile);
+                            strfile = pEspDst->infshEspData();
+                            OutputStr("Destination data saved to file: " + strfile);
+                            break;
+                        }
 
                     case IDM_ABOUT:
                         DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -1204,7 +1207,7 @@ bool _outputnewplanet(CEsp::formid_t NewformId)
 
     // display star system planet position info after creation
     std::string strMsg;
-    pEspDst->dumpPlanetPositions(oNew.m_iPrimaryIdx, strMsg);
+    pEspDst->infshPlanetPositions(oNew.m_iPrimaryIdx, strMsg);
     OutputStr("Star system LocalIds after creation: " + strMsg);
 
     // display new planet details
