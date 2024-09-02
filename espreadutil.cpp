@@ -210,7 +210,7 @@ bool CEsp::getBasicInfo(formid_t iSystemId, size_t iParentPlanetID, BasicInfoRec
     return false;
 }
 
-bool CEsp::getBasicInfo(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec)
+bool CEsp::getBasicInfoByFormId(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec)
 {
     if (formid == NO_FORMID)
         return false;

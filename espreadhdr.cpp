@@ -146,7 +146,17 @@ bool CEsp::loadfile(std::string &strErr)
     }
 
     // Get file size
-    std::streamsize size = file.tellg();
+    std::streamsize sizestream = file.tellg();
+
+    if (sizestream > std::numeric_limits<std::streamsize>::max())
+    {
+        file.close();
+        strErr = std::string("File is too large ") + getFnameAsStr();
+        return false; 
+    }
+
+    size_t size = static_cast<size_t>(sizestream);
+
     file.seekg(0, std::ios::beg);
     m_buffer.resize(size);
 

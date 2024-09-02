@@ -906,7 +906,7 @@ private:
 public:
     // UX to CEsp data sharing
     bool getBasicInfo(ESPRECTYPE eType, size_t iIdx, BasicInfoRec& oBasicInfoRec);
-    bool getBasicInfo(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec);
+    bool getBasicInfoByFormId(ESPRECTYPE eType, formid_t formid, BasicInfoRec& oBasicInfoRec);
     bool getBasicInfo(formid_t iSystemId, size_t iParentPlanetID, BasicInfoRec& oBasicInfoRec);
     void getBasicInfoRecs(CEsp::ESPRECTYPE eType, std::vector<BasicInfoRec>& oBasicInfos, bool bExcludeblanks = false);
 

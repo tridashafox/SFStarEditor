@@ -116,12 +116,12 @@ std::string wstrtostr(const std::wstring& wstr)
 
 std::wstring wstrfnTrunc(std::wstring wfn, int iTruncate=36)
 {
-    return wfn.size() > iTruncate ? std::wstring(L"...") + wfn.substr(wfn.size() - iTruncate) : wfn;
+    return wfn.size() > static_cast<size_t>(iTruncate) ? std::wstring(L"...") + wfn.substr(wfn.size() - iTruncate) : wfn;
 }
 
 std::string strfnTrunc(std::string sfn, int iTruncate=36)
 {
-    return sfn.size() > iTruncate ? std::string("...") + sfn.substr(sfn.size() - iTruncate) : sfn;
+    return sfn.size() > static_cast<size_t>(iTruncate)? std::string("...") + sfn.substr(sfn.size() - iTruncate) : sfn;
 }
 
 
@@ -1204,7 +1204,7 @@ bool _outputnewplanet(CEsp::formid_t NewformId)
         return false; // bad
 
     CEsp::BasicInfoRec oNew;
-    if (!pEspDst->getBasicInfo(CEsp::eESP_PNDT, NewformId, oNew))
+    if (!pEspDst->getBasicInfoByFormId(CEsp::eESP_PNDT, NewformId, oNew))
     {
         OutputStr("Error: Invalid formid.");
         return false;
@@ -1426,7 +1426,7 @@ INT_PTR CALLBACK CreatePlanetDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 }
 
 // code to make a moon
-bool _dlgMakeMoon(HWND hDlg)
+bool _dlgMakeMoon(HWND hDlg) 
 {
     if (!pEspDst)
     {

@@ -70,7 +70,7 @@ private:
         if (m_oHdr.m_namePos >= m_buffer.size())
             return false;
 
-        searchPos = m_oHdr.m_namePos;
+        searchPos = static_cast<size_t>(m_oHdr.m_namePos);
 
         // Read file names
         for (size_t i = 0; i < m_oHdr.m_nfiles; i++)
@@ -107,7 +107,7 @@ public:
     bool loadfile(const std::wstring wstrfilename, std::string& strErr)
     {
         m_buffer.clear();
-   
+
         std::string strFn;
         std::filesystem::path filePath(wstrfilename);
         strFn = filePath.string();
@@ -119,8 +119,18 @@ public:
             return false;
         }
 
-        std::streamsize size = file.tellg();
+        std::streamsize sizestream = file.tellg();
         file.seekg(0, std::ios::beg);
+
+        if (sizestream > std::numeric_limits<std::streamsize>::max())
+        {
+            file.close();
+            strErr = std::string("File is too large ") + strFn;
+            return false; 
+        }
+
+        size_t size = static_cast<size_t>(sizestream);
+
         m_buffer.resize(size);
         if (!file.read(m_buffer.data(), size))
         {
@@ -156,7 +166,7 @@ public:
         decompbuff.resize(m_fnhdrs[fid].m_decompsize);
         outbuff.resize(m_fnhdrs[fid].m_decompsize);
 
-        size_t searchPtr = m_fnhdrs[fid].m_offset;
+        size_t searchPtr = static_cast<size_t>(m_fnhdrs[fid].m_offset);
         if (bComp) 
         {
             if (searchPtr + m_fnhdrs[fid].m_compsize > m_buffer.size())

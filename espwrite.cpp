@@ -784,7 +784,7 @@ bool CEsp::_adjustPlanetLocalIds(const size_t iPrimaryIdx, const size_t iNewPlan
     for (SafeStore& oSafe : oUpdates)
     {
         BasicInfoRec oBasicRec;
-        if (!getBasicInfo(eESP_PNDT, oSafe.m_formid, oBasicRec))
+        if (!getBasicInfoByFormId(eESP_PNDT, oSafe.m_formid, oBasicRec))
             return false; // Not good
 
         const PNDTGnamOv* pGnam = m_pndts[oBasicRec.m_iIdx].m_pGnam;
