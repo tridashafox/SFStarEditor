@@ -139,7 +139,9 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="espread.cpp" />
+    <ClCompile Include="espreadbfce.cpp" />
+    <ClCompile Include="espreadutil.cpp" />
+    <ClCompile Include="espreadhdr.cpp" />
     <ClCompile Include="espinfsh.cpp" />
     <ClCompile Include="espreadbiom.cpp" />
     <ClCompile Include="espwrite.cpp" />

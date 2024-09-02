@@ -214,7 +214,6 @@ size_t CEsp::_updateCompressed(std::vector<char> &buff, PNDTrec& oRec)
 
 }
 
-
 // For the passed group append the passed new record 
 bool CEsp::appendToGrup(char *pgrup, const std::vector<char>& insertData)
 {
@@ -293,7 +292,6 @@ bool CEsp::createGrup(const char *pTag, const std::vector<char> &newBuff)
 
     return true;
 }
-
 
 // Creates a location record
 CEsp::formid_t CEsp::_createLoc(std::vector<char> &newLocbuff, const char* szLocName, const char* szOrbName, formid_t parentid, formid_t systemid, 
@@ -805,27 +803,6 @@ bool CEsp::_adjustPlanetLocalIds(const size_t iPrimaryIdx, const size_t iNewPlan
 
     return true;
 }
-
-#ifdef Never
-    // example code for how to remove bioms
-    // Remove Bioms - might be useful as a part method to make a planet unlandable from landable
-    // would also need to remove keywords/adjust keywords
-    int i = 0; std::string strErr;
-    while (oRec.m_oPpbds.size())
-    {
-        const PPBDOv* pPpbd = oRec.m_oPpbds.back();
-        if (!pPpbd)
-            break;
-        oRec.m_oPpbds.pop_back();
-
-        const char* removestart = reinterpret_cast<const char*>(pPpbd);
-        const char* removeend = &removestart[pPpbd->m_size + sizeof(pPpbd->m_PPBDtag) + sizeof(pPpbd->m_size)];
-         _deleterec(oRec.m_decompdata, removestart, removeend);
-        _rebuildPndtRecFromDecompBuffer(oRec); // reload info due to memory changes
-        _refreshHdrSizesPndt(oRec, oRec.m_decompdata.size()); // refresh sizes affected by remove
-        // debug _saveToFile(oRec.m_decompdata, strDirectoryPath + std::to_wstring(i++) + L".bin", strErr);
-    }
-#endif
 
 // need to fix up component records which where cloned and came from an ESM
 void CEsp::_clonefixupcompsPndt(CEsp::PNDTrec& oRec)

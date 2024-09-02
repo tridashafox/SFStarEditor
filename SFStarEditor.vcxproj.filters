@@ -32,7 +32,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="espread.cpp">
+    <ClCompile Include="espreadhdr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="espwrite.cpp">
@@ -57,6 +57,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="espmaps.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="espreadutil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="espreadbfce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
