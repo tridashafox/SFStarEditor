@@ -1,8 +1,8 @@
 # Starfield star system editor for ESP moding
 Original creation by tridasha.
 
-**EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP pluging file.
-C++ Visual Studio 2022 project. 
+**EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP.
+C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib if compiling the source. 
 
