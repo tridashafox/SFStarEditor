@@ -6,10 +6,6 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib when building. If you don't want to build it then there is a version of it in [nifscope](https://github.com/fo76utils/nifskope/releases/). Don't donwload it from a random site. 
 
-### Releases:
-[Release 0.1](https://github.com/tridashafox/SFStarEditor/releases/tag/Release_01).
-IMPORTANT - This is an early release with limited testing. Beware if you use it with an ESP and then take that forward and there is found to be a data issue with what it has generated that might be hard to correct later.
-
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets to created in the star system
