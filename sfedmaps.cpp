@@ -689,7 +689,7 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                 for (const CEsp::BasicInfoRec& oBasicInfo : oBasicInfoRecs)
                     if (*oBasicInfo.m_pName) // leave out blank records (bad records)
                     {
-                        LRESULT index = SendMessageA(hCombo1, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pName);
+                        LRESULT index = SendMessageA(hCombo1, CB_ADDSTRING, 0, (LPARAM)oBasicInfo.m_pAName);
                         if (index != CB_ERR && index != CB_ERRSPACE)
                             SendMessage(hCombo1, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
                     }
