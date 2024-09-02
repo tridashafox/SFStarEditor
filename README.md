@@ -8,20 +8,20 @@ Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/p
 
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
-2. Allows for additional planets to created in the star system
+2. Allows for additional planets and or moons to created in the star system
 3. Creates the require locations to ensure navigation is possible in game
 4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
 5. Allows ESM or ESP to be source of the data to be cloned from
 6. Makes a back of the ESP when it is saved
 7. Includes are star map to help decide what position the star should be placed in the in game map. Also includes basic planet map for a star system.
 8. Checks how close to other stars to ensure not too close/overlapping
-9. Performs name a degree of name validation for new stars and planets
+9. Performs name validation for new stars and planets
 10. Repositions planets and moons in sequence to ensure positions are correct
 11. Auto names moons 
 
 ### Limitations:
 1. Only very limited changes to the star or planet possible once cloned (to be expanded at some point)
-2. The planet dialog includes an option to set th new planets position in the star system. This is currently not implemented. You can change the position in the creation kit if required.
+2. The planet dialog includes an option to set the new planets position in the star system. This is currently not implemented. You can change the position in the creation kit if required.
 
 ### Use: 
 1. Start the app. You will need to have a ESP to work on as your destination. This can be something created from a small change in the creation kit and then saving it.
