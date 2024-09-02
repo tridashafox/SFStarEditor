@@ -149,7 +149,7 @@
     <ClCompile Include="espreadpntd.cpp" />
     <ClCompile Include="espreadstdt.cpp" />
     <ClCompile Include="sfedmain.cpp" />
-    <ClCompile Include="espmaps.cpp" />
+    <ClCompile Include="sfedmaps.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="sfed2.ico" />

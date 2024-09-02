@@ -56,7 +56,7 @@
     <ClCompile Include="espreadbiom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="espmaps.cpp">
+    <ClCompile Include="sfedmaps.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="espreadutil.cpp">
