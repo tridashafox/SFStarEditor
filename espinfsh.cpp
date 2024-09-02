@@ -69,9 +69,10 @@ std::string CEsp::_infshPndt(const CEsp::PNDTrec& oRec)
     memcpy(pTagBuff, oRec.m_pHdr->m_PNDTtag, sizeof(pTagBuff) - 1);
     std::string strname((char*)&oRec.m_pEdid->m_name);  if (strname.empty()) strname = "(none)";
     std::string stranam((char*)&oRec.m_pAnam->m_aname); if (stranam.empty()) stranam = "(none)";
-    std::string str = std::string(pTagBuff) + std::format(" [0x{:08X}]", oRec.m_pHdr->m_formid) + " [Size: "
-        + std::format("0x{:08X}", oRec.m_pHdr->m_size) + "] [NAME: " + strname + "] [ANAM: " + stranam
-        + std::format("] [StarSystem: 0x{:08X}]", oRec.m_pGnam->m_systemId)
+    std::string str = std::string(pTagBuff) + std::format(" [0x{:08X}]", oRec.m_pHdr->m_formid) 
+        + " [Size: " + std::format("0x{:08X}", oRec.m_pHdr->m_size) + "] [NAME: " + strname + "] [ANAM: " + stranam + "]"
+        + " [RadiusKM: " + std::to_string(oRec.m_pFnam->m_RadiusKm) + "] [Gravity: " + std::to_string(oRec.m_pFnam->m_Gravity) + "]"
+        + std::format(" [StarSystem: 0x{:08X}]", oRec.m_pGnam->m_systemId)
         + " [perihelion: " + std::to_string(oRec.m_pHnam3->m_perihelion) + "]";
     for (int i = 0; i < NUMHNAMSTRINGS; i++)
         if (oRec.m_oHnam2.m_Strings[i] && oRec.m_oHnam2.m_Strings[i]->m_size)

@@ -424,25 +424,36 @@ CEsp::fPos CEsp::posSwap(const CEsp::fPos& oOrgPos, CEsp::POSSWAP eSwapXZ)
     return oPos;
 }
 
-void CEsp::getPlanetPerihelion(size_t iStarIdx, std::vector<CEsp::PlanetPlotData>& oPlanetPlots, double & min, double & max)
+void CEsp::getPlanetPerihelion(size_t iStarIdx, CEsp::SystemPlotData &oSysPlot, double & min, double & max)
 {
-    oPlanetPlots.clear();
     std::vector<BasicInfoRec> oBasicInfoRecs;
     getBasicInfoRecsOrbitingPrimary(eESP_STDT, iStarIdx, oBasicInfoRecs, false, true);
 
+    oSysPlot.m_min = std::numeric_limits<double>::max();
+    oSysPlot.m_max = std::numeric_limits<double>::min();
+    oSysPlot.m_oPlanetPlots.clear();
     for (const BasicInfoRec& oBasicInfo : oBasicInfoRecs)
     {
+        if (!m_pndts[oBasicInfo.m_iIdx].m_pHnam3 || !m_pndts[oBasicInfo.m_iIdx].m_pFnam)
+        {
+            oSysPlot.m_oPlanetPlots.clear();
+            return; // bad
+        }
+
         double fperihelion = m_pndts[oBasicInfo.m_iIdx].m_pHnam3->m_perihelion;
+        float fradiusKm = m_pndts[oBasicInfo.m_iIdx].m_pFnam->m_RadiusKm;
 
         // Set min and max
         if (fperihelion < min) min = fperihelion;
-        if (fperihelion> max) max = fperihelion;
+        if (fperihelion > max) max = fperihelion;
+        if (fperihelion <  oSysPlot.m_min)  oSysPlot.m_min = fperihelion;
+        if (fperihelion >  oSysPlot.m_max)  oSysPlot.m_max = fperihelion;
 
-        oPlanetPlots.push_back(PlanetPlotData(oBasicInfo.m_iIdx, fperihelion, oBasicInfo.m_pAName));
+        oSysPlot.m_oPlanetPlots.push_back(PlanetPlotData(oBasicInfo.m_iIdx, fperihelion, fradiusKm, oBasicInfo.m_pAName));
     }
 
     // sort by distance
-    std::sort(oPlanetPlots.begin(), oPlanetPlots.end(),
+    std::sort(oSysPlot.m_oPlanetPlots.begin(), oSysPlot.m_oPlanetPlots.end(),
         [](const PlanetPlotData& a, const PlanetPlotData& b) { return a.m_fPerihelion < b.m_fPerihelion; });
 }
 

@@ -150,7 +150,7 @@ public:
         size_t m_iPlanetlocalId;   // The position for a planet [TODO: how are moons handled]
         size_t m_iParentlocalId; // for moons which planet by LocalId it is orbiting 
         size_t m_iSysPlayerLvl; // Level of the star system. Used to populate location records and set level
-        size_t m_iSysPlayerLvlMax;     // Max level things can be in the location
+        size_t m_iSysPlayerLvlMax; // Max level things can be in the location
         size_t m_iFaction;      // faction what it belongs to if any
     };
 
@@ -167,11 +167,21 @@ public:
     struct PlanetPlotData
     {
         // TODO need planet size
-        PlanetPlotData() :m_iPlanetIdx(0), m_fPerihelion(0.0f), m_strName("") {}
-        PlanetPlotData(size_t iPlanetIdx, double fPerihelion, std::string strName) : m_iPlanetIdx(m_iPlanetIdx), m_fPerihelion(fPerihelion), m_strName(strName) {}
+        PlanetPlotData() :m_iPlanetIdx(0), m_fPerihelion(0.0f), m_RadiusKm(0.0), m_strName("") {}
+        PlanetPlotData(size_t iPlanetIdx, double fPerihelion, float radiusKm, std::string strName) : 
+            m_iPlanetIdx(iPlanetIdx), m_fPerihelion(fPerihelion), m_RadiusKm(radiusKm), m_strName(strName) {}
         double m_fPerihelion;
+        float m_RadiusKm;
         std::string m_strName;
         size_t m_iPlanetIdx;
+    };
+
+    struct SystemPlotData
+    {
+        SystemPlotData() : m_min(std::numeric_limits<double>::max()), m_max(std::numeric_limits<double>::min()) {}
+        double m_min;
+        double m_max;
+        std::vector<PlanetPlotData> m_oPlanetPlots;
     };
 
 private:
@@ -492,6 +502,20 @@ private:
     };
     const PNDTCnamOv BADPNDCANAMREC = PNDTCnamOv();
 
+
+    struct PNDTFnamOv
+    {
+        PNDTFnamOv() { memset(this, 0, sizeof(*this)); }
+        uint8_t m_FNAMtag[4];
+        uint16_t m_size;
+        double m_GravityWell;
+        float m_MassRatioToEarth;
+        float m_RadiusKm;
+        float m_Gravity;
+        uint32_t m_unused2;
+    };
+    const PNDTFnamOv BADPNDTFNAMREC = PNDTFnamOv();
+
     struct PNDTGnamOv
     {
         PNDTGnamOv() { memset(this, 0, sizeof(*this)); }
@@ -558,6 +582,7 @@ private:
         const PNDTAnamOv* m_pAnam;
         const PNDTCnamOv* m_pCnam;
         std::vector<const PPBDOv*> m_oPpbds; // Set of PPBD records which old biom information
+        const PNDTFnamOv* m_pFnam;
         const PNDTGnamOv* m_pGnam;
         const PNDTHnam1Ov* m_pHnam1;
         PNDTHnam2Rec m_oHnam2;
@@ -894,7 +919,7 @@ public:
     std::string infshEspData();
 
     // for maps
-    void getPlanetPerihelion(size_t iStarIdx, std::vector<PlanetPlotData>& oPlanetPlots, double& min, double& max);
+    void getPlanetPerihelion(size_t iStarIdx, CEsp::SystemPlotData& oSysPlot, double& min, double& max);
     float calcDist(const fPos& p1, const fPos& p2);
     void getMoons(size_t iPlanetIdx, std::vector<BasicInfoRec>& oBasicInfos);
     void getBasicInfoRecsOrbitingPrimary(ESPRECTYPE eType, size_t iPrimary, std::vector<BasicInfoRec>& oBasicInfos, bool bIncludeMoons, bool bIncludeUnlandable);

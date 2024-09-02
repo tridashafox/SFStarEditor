@@ -55,6 +55,8 @@
 #define IDC_PLANPOS                     1034
 #define IDC_PLAYER_LEVEL                1035
 #define IDC_PLAYER_LEVEL_MAX            1036
+#define IDC_STATIC2                     1036
+#define IDC_STATICDETAILLVL             1036
 #define IDM_FILE_SOURCE                 32771
 #define IDM_FILE_DEST                   32772
 #define IDM_FILE_CREATE_STAR            32773
@@ -78,7 +80,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         32785
-#define _APS_NEXT_CONTROL_VALUE         1036
+#define _APS_NEXT_CONTROL_VALUE         1037
 #define _APS_NEXT_SYMED_VALUE           140
 #endif
 #endif

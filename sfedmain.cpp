@@ -80,11 +80,11 @@ void capsFirstLetter(std::string& str)
     }
 
 // convert std::string to wchar for windows 
-std::wstring strToWstr(const std::string& str)
+std::wstring strToWstr(const std::string& str) 
 {
-    int str_len = (int)str.length() + 1;
+    int str_len = (int)str.length();  // Length without null terminator
     int len = MultiByteToWideChar(CP_ACP, 0, str.c_str(), str_len, 0, 0);
-    std::wstring wstr(len, L'\0');
+    std::wstring wstr(len, L'\0');  // No need for +1 since std::wstring handles null terminator
     MultiByteToWideChar(CP_ACP, 0, str.c_str(), str_len, &wstr[0], len);
     return wstr;
 }

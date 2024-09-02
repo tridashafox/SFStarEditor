@@ -85,6 +85,7 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
     size_t taglen = 4;
     oRec.m_pEdid = &BADEDIDREC;
     oRec.m_pAnam = &BADPNDTANAMREC;
+    oRec.m_pFnam = &BADPNDTFNAMREC;
     oRec.m_pGnam = &BADPNDTGNAMREC;
     oRec.m_pHnam1 = &BADPNDTHNAMREC1;
     oRec.m_pHnam3 = &BADPNDTHNAMREC3;
@@ -167,6 +168,16 @@ void CEsp::_dopndt_op_findparts(PNDTrec& oRec, const char*& searchPtr, const cha
                 {
                     // Ignore ones in this section for now
                     // _buildppbdlist(oRec, searchPtr, endPtr);
+                }
+                else
+                if (memcmp(searchPtr, "FNAM", taglen) == 0)
+                {
+                    if (BLEFT >= sizeof(PNDTFnamOv))
+                    {
+                        oRec.m_pFnam = reinterpret_cast<const PNDTFnamOv*>(searchPtr);
+                        searchPtr += BSKIP(oRec.m_pFnam); // Skip forward
+                    }
+                    continue;
                 }
                 else
                 if (memcmp(searchPtr, "GNAM", taglen) == 0)

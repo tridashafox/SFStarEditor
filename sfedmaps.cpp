@@ -51,7 +51,7 @@ CEsp::POSSWAP stmap_eSwap = CEsp::PSWAP_XY;
 CEsp::fPos  stdmap_zoominc(0,0,0);
 
 // for planet map
-std::vector<CEsp::PlanetPlotData> pmap_oplots;
+CEsp::SystemPlotData pmap_oplotdata;
 double pmap_min = std::numeric_limits<double>::max();
 double pmap_max = std::numeric_limits<double>::min();
 
@@ -62,7 +62,7 @@ extern CEsp* pEspDst;
 extern HWND hMainWnd;
 
 
-void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const std::string str, bool bAddCircle = false)
+int DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const std::string str, bool bAddCircle = false, bool bRecText = false)
 {
     size_t fontSize = 15;
 
@@ -86,23 +86,32 @@ void DrawSmallText(HDC hdc, size_t iZoomllvl, int x, int top, int bottom, const 
     // Convert std::string to std::wstring
     std::wstring wstr;
     if (bAddCircle)
-        wstr =  L'\u25EF'; // Unicode for LARGE CIRCLE
-    wstr += L" " + strToWstr(str);
+    {
+        if (bRecText)
+            wstr = strToWstr(str) + L" \u25EF";
+        else
+            wstr = std::wstring(1,L'\u25EF') + L" " + strToWstr(str);
+    }
+    else
+        wstr = strToWstr(str);
+
     SIZE textSize;
     GetTextExtentPoint32(hdc, wstr.c_str(), static_cast<int>(wstr.length()), &textSize);
     int rectCenterY = (top + bottom) / 2;
     int textStartY = rectCenterY - (textSize.cy / 2);
     RECT textRect;
-    textRect.left = x;
     textRect.top = textStartY;
-    textRect.right = x + textSize.cx;
     textRect.bottom = textStartY + textSize.cy;
+    textRect.left = bRecText ? x - textSize.cx : x;
+    textRect.right = x + textSize.cx;
+    int iFontHeight = textRect.bottom - textRect.top;
 
     // Draw the text
     DrawText(hdc, wstr.c_str(), -1, &textRect, DT_LEFT | DT_TOP | DT_NOCLIP);
 
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
+    return iFontHeight;
 }
 
 POINT DenormalizePos(const POINT screenPos, const size_t izoomlvl, const CEsp::fPos &zoominc, const RECT& rect, float minX, float minY, float maxX, float maxY)
@@ -558,6 +567,10 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
             SendMessage(hSlider, TBM_SETTICFREQ, SLIDER_RNG_MAX, 0);
             SendMessage(hSlider, TBM_SETPOS, TRUE, SLIDER_RNG_MAX);
 
+            // Hide a control in the dialog - not used at moment
+            ShowWindow(hSlider, SW_HIDE);
+            ShowWindow(GetDlgItem(hDlg, IDC_STATICDETAILLVL), SW_HIDE);
+
             iZoomlevel = 0;
             bInPan = false;
             ptStart = POINT(0, 0);
@@ -644,13 +657,13 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                     {
                         CEsp::BasicInfoRec oBasicInfoStar;
                         pEspSrc->getBasicInfo(CEsp::eESP_STDT, iIdx, oBasicInfoStar);
-                        pEspSrc->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                        pEspSrc->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplotdata, pmap_min, pmap_max);
                     }
                     else
                     {
                         CEsp::BasicInfoRec oBasicInfoStar;
                         pEspDst->getBasicInfo(CEsp::eESP_STDT, iIdx, oBasicInfoStar);
-                        pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplots, pmap_min, pmap_max);
+                        pEspDst->getPlanetPerihelion(oBasicInfoStar.m_iIdx, pmap_oplotdata, pmap_min, pmap_max);
                     }
                 }
                 _invalidDlgitem(hDlg, IDC_STATIC_P2);
@@ -680,6 +693,10 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                         if (index != CB_ERR && index != CB_ERRSPACE)
                             SendMessage(hCombo1, CB_SETITEMDATA, (WPARAM)index, (LPARAM)oBasicInfo.m_iIdx);
                     }
+                SendMessage(hCombo1, CB_SETCURSEL, 0, 0);
+                 PostMessageA(hDlg, WM_COMMAND, MAKEWPARAM(IDC_COMBO1, CBN_SELCHANGE), (LPARAM)hCombo1);
+                 SetFocus(hCombo1);
+                _invalidDlgitem(hDlg, IDC_STATIC_P2);
             }
         }
         break;
@@ -715,19 +732,33 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                 HGDIOBJ hOld = SelectObject(hdcMem, hbmMem);
                 _drawblkbkg(hdcMem, pt1, pt2);
 
-                // TODO
-                if (pmap_oplots.size())
+                 size_t numplans = pmap_oplotdata.m_oPlanetPlots.size();
+                if (numplans)
                 {
                     int top = 100;
+                    int iInc = static_cast<int>(((rectW.bottom - rectW.top) - top) / numplans);
                     int istarsize = 30;
-                    double adjust = static_cast<double>((rectW.right - rectW.left) - istarsize) / (pmap_max - pmap_min);
-                    Ellipse(hdcMem, pt1.x-istarsize,  pt1.y-istarsize, pt1.x+istarsize, pt1.y+istarsize);  
-                    for (auto& oPlot : pmap_oplots)
+                    double r = pmap_oplotdata.m_max > 100000000 ? 100000 : 1;
+                    double adjust = static_cast<double>((rectW.right - rectW.left) - istarsize*4) / (numplans==1 ? pmap_oplotdata.m_max*3/r : pmap_oplotdata.m_max/r);
+                    Ellipse(hdcMem, pt1.x-istarsize,  pt1.y-istarsize, pt1.x+istarsize, pt1.y+istarsize);
+
+                    for (size_t i=0; i<numplans; i++)
                     {
-                        double fx = oPlot.m_fPerihelion * adjust;
-                        int rx = static_cast<int>(fx);
-                        DrawSmallText(hdcMem, 1, istarsize + pt1.x + rx, top, top + 30, oPlot.m_strName, true);
-                        top += 20;
+                        bool bDoRev = numplans > 1 && i == (numplans - 1);
+                        double fx = (pmap_oplotdata.m_oPlanetPlots[i].m_fPerihelion/r) * adjust;
+                        int rx = istarsize + pt1.x + static_cast<int>(fx);
+                        int ifh = DrawSmallText(hdcMem, 1, rx + istarsize/2, top, top + 30, pmap_oplotdata.m_oPlanetPlots[i].m_strName, false, bDoRev);
+
+                        double stz = pmap_oplotdata.m_oPlanetPlots[i].m_RadiusKm/1000;
+                        int stx = static_cast<int>(stz);
+                        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdcMem, GetStockObject(NULL_BRUSH));
+                        HPEN hWhitePen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+                        HPEN hOldPen = (HPEN)SelectObject(hdcMem, hWhitePen);
+                        Ellipse(hdcMem, rx-stx, top+ifh-stx, rx+stx, top+ifh+stx);
+                        SelectObject(hdcMem, hOldBrush);
+                        SelectObject(hdcMem, hOldPen);
+
+                        top += iInc;
                     }
                 }
 
