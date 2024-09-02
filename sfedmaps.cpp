@@ -526,6 +526,9 @@ INT_PTR CALLBACK DialogProcStarMap(HWND hDlg, UINT message, WPARAM wParam, LPARA
                 {
                     CEsp::POSSWAP eSwap = (CEsp::POSSWAP)SendMessage(GetDlgItem(hDlg, IDC_COMBOVIEW), CB_GETITEMDATA, SendMessage(GetDlgItem(hDlg, IDC_COMBOVIEW), CB_GETCURSEL, 0, 0), 0);
                     CEsp::StarPlotData plot(pEspSrc->posSwap(gdlgData.m_oPos, eSwap), gdlgData.m_strStarName.empty() ? "(new unnamed)" : gdlgData.m_strStarName);
+                    plot.m_oPos.m_xPos *= SCALECORD;
+                    plot.m_oPos.m_zPos *= SCALECORD;
+                    plot.m_oPos.m_yPos *= SCALECORD;
                     _createBrushandPen(hdcMem, RGB(255, 0, 0), hBr, hPen);
                     _drawStar(hdcMem, iZoomlevel, stdmap_zoominc, iOffX, iOffY, plot, rect, min, max);
                     _deleteBrushandPen(hBr, hPen);
