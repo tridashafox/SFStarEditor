@@ -28,13 +28,14 @@
 #include <cmath>
 #include <regex>
 
+#include "espmanger.h"
+
+
 #define MAXZOOM 6
 #define MAXTEXTZOOM 2
 #define SCALECORD 1000 // used to scale up star cord system to get better resolution when panning and zooming
 #define STARICONSIZE 2.0f
 #define ZOOMSCALING (0.5f) // adjust how much affect zooming has on the size of things
-
-#include "espmanger.h"
 
 // Needed to pass data to the star map
 CEsp::StarPlotData gdlgData;
