@@ -33,6 +33,8 @@
 
 #include "espmanger.h"
 
+const std::wstring wStrVersion = L"Experimental Version 0.2";
+
 // Forward function declarations
 BOOL OpenFileDialog(HWND, LPWSTR,DWORD, LPWSTR, BOOL);
 ATOM MyRegisterClass(HINSTANCE hInstance);
@@ -629,7 +631,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
 
                 SetTimer(hWnd, ID_TIMER, TIMER_INTERVAL, NULL); // Set the timer for 30 seconds
-                OutputStrW(L"Starfield star system creator. Version 0.1");
+                std::wstring wMsg = std::wstring(L"Starfield star system creator. ");
+                wMsg += wStrVersion;
+                OutputStrW(wMsg.c_str());
                 OutputStrW(L"  * EXPERIMENTAL *");
                 OutputStrW(L"* USE AT OWN RISK *");
                 OutputStrW(L" ");
@@ -825,6 +829,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
         case WM_INITDIALOG:
+            SetDlgItemText(hDlg, IDM_VERSION, wStrVersion.c_str());
             return (INT_PTR)TRUE;
 
         case WM_COMMAND:
