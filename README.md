@@ -2,7 +2,7 @@
 Original creation by tridasha.
 
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP.
-C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. 
+C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you don't want to install Visual Studio, you have the option of downloading a [Microsoft VM with it already installed](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/). 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib when building. If you don't want to build it then there is a version of it in [nifscope](https://github.com/fo76utils/nifskope/releases/). Don't donwload it from a random site. 
 
