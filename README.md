@@ -16,7 +16,6 @@ Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/p
 7. Includes are star map to help decide what position the star should be placed in the in game map. Also includes basic planet map for a star system.
 8. Checks how close to other stars to ensure not too close/overlapping
 9. Performs name validation for new stars and planets
-10. Repositions planets and moons in sequence to ensure positions are correct
 11. Auto names moons 
 
 ### Limitations:
