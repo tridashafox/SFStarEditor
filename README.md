@@ -5,13 +5,13 @@ Original creation by tridasha.
 C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you don't want to install Visual Studio, you have the option of downloading a [Microsoft VM with it already installed](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/). 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib when building. If you don't want to get it and build it with vckpg (which in itself is hard to setup) then there is a version of the dll in [nifscope](https://github.com/fo76utils/nifskope/releases/). Don't download it from a random site. You will also need the zlib.h for version zlib 1.2.13 to go with the dll. This can be found in the "Source code
-(zip)" file [zlib source on github](https://github.com/madler/zlib/releases/tag/v1.2.13). You just need the zlib.h from the zip and nothing else. You can put this in with the source code directory for this project with the code, but... you will need to change the #include <zlib.h> to #include "zlib.h" in the two source files - espmanger.h and espreadbiom.cpp.
+(zip)" file [zlib source on github](https://github.com/madler/zlib/releases/tag/v1.2.13). You just need the zlib.h from the zip and nothing else. You can put this in with the source code directory for this project with the code, but... you will need to change the `#include <zlib.h>` to `#include "zlib.h"` in the two source files - espmanger.h and espreadbiom.cpp.
 
 Why is this zlib thing so complicated:
 1. vcpkg is a pain to install and get it to work correctly and requires include paths enviroment variables to be set up correctly.
 2. zlib is not provided with VC++ sdk or standard libraries but it is used by the esp file format and the Creation Kit.
 3. If zlib is statically linked to avoid this dependancy, the built .exe can cause antivirus generic detecton algorithms to false positive because decompression and compression code in an .exe looks suspicious when combined with file writes for something new that is not signed with a cert.
-4. The code for this project assumes a vcpkg installed zlib so it uses include <zlib.h> for a external library rather than include "zlib.h" which would be one created as part of the project and can live with the source for the project. [see for more details](https://www.geeksforgeeks.org/difference-between-include-and-include-in-c-c-with-examples/)
+4. The code for this project assumes a vcpkg installed zlib so it uses `#include <zlib.h>` for an external library rather than `#include "zlib.h"` which would be one created as part of the project and can live with the source for the project. [see for more details](https://www.geeksforgeeks.org/difference-between-include-and-include-in-c-c-with-examples/)
    
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
