@@ -5,7 +5,7 @@ Original creation by tridasha.
 C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you don't want to install Visual Studio, you have the option of downloading a [Microsoft VM with it already installed](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/). 
 
 Note: Requires zlib1.dll which can be installed with vcpkg https://vcpkg.io/en/package/zlib when building. If you don't want to get it and build it with vckpg (which in itself is hard to setup) then there is a version of the dll in [nifscope](https://github.com/fo76utils/nifskope/releases/). Don't download it from a random site. You will also need the zlib.h for version zlib 1.2.13 to go with the dll. This can be found in the "Source code
-(zip)" in the [zlib source on github](https://github.com/madler/zlib/releases/tag/v1.2.13). You just need the zlib.h from the zip and nothing else. You can put this in with the source code directory for this project with the code, but... you will need to change the `#include <zlib.h>` to `#include "zlib.h"` in the two source files - espmanger.h and espreadbiom.cpp (ignore the one after `#ifdef STATIC_ZLIB` it is not used).
+(zip)" in the [zlib source on github](https://github.com/madler/zlib/releases/tag/v1.2.13). You just need the zlib.h from the zip and nothing else. You can put this in with the source code directory for this project with the code, but... you will need to change the `#include <zlib.h>` to `#include "zlib.h"` in the two source files - espmanger.h and espreadbiom.cpp (ignore the one after `#ifdef STATIC_ZLIB` as it is not used).
 
 Why is this zlib thing so complicated:
 1. vcpkg is a pain to install and get it to work correctly and requires include paths enviroment variables to be set up correctly.
