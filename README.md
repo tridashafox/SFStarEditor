@@ -35,7 +35,7 @@ Why is this zlib thing so complicated:
 3. File -> Select destination plugin file (ESP) - open a ESP being worked (make a copy!)
 4. Star -> Create star - based on an existing star in the source
 5. Planet -> Create planet - create a planet for the star from an existing planet in ESM.
-   Note: A star system must have at least one planet to work in game.
+   Note: A star system must have at least one planet to work in game. This step (and 6) will automatically extract the biom file for the planet from the correct starfield archive and rename it to the name of the new planet and place it in the data directory planetdata/biomemaps directory. 
 6. Planet -> Create moon - optional
 7. File -> Save to destination - will save to the loaded destination file. 
 8. Check the ESP works in game.
