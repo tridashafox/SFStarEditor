@@ -1,11 +1,6 @@
 #include "espmanger.h"
 
-#ifdef STATIC_ZLIB
 #include "zlib\zlib.h"
-#endif
-#ifndef STATIC_ZLIB
-#include <zlib.h>
-#endif
 
 // Function to compress the data and store it in the output parameter
 bool CEsp::compress_data(const char* input_data, size_t input_size, std::vector<char>& compressed_data) 

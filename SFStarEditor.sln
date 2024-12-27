@@ -5,6 +5,60 @@ VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SFStarEditor", "SFStarEditor.vcxproj", "{E74FE84A-6212-430A-BBCC-D43BF4F78F8C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "zlib", "zlib", "{628C81FB-0711-4C89-8A91-DBFEC155A0E9}"
+	ProjectSection(SolutionItems) = preProject
+		zlib\adler32.c = zlib\adler32.c
+		zlib\compress.c = zlib\compress.c
+		zlib\crc32.c = zlib\crc32.c
+		zlib\crc32.h = zlib\crc32.h
+		zlib\deflate.c = zlib\deflate.c
+		zlib\deflate.h = zlib\deflate.h
+		zlib\gzclose.c = zlib\gzclose.c
+		zlib\gzguts.h = zlib\gzguts.h
+		zlib\gzlib.c = zlib\gzlib.c
+		zlib\gzread.c = zlib\gzread.c
+		zlib\gzwrite.c = zlib\gzwrite.c
+		zlib\infback.c = zlib\infback.c
+		zlib\inffast.c = zlib\inffast.c
+		zlib\inffast.h = zlib\inffast.h
+		zlib\inffixed.h = zlib\inffixed.h
+		zlib\inflate.c = zlib\inflate.c
+		zlib\inflate.h = zlib\inflate.h
+		zlib\inftrees.c = zlib\inftrees.c
+		zlib\inftrees.h = zlib\inftrees.h
+		zlib\trees.c = zlib\trees.c
+		zlib\trees.h = zlib\trees.h
+		zlib\uncompr.c = zlib\uncompr.c
+		zlib\zconf.h = zlib\zconf.h
+		zlib\zlib.h = zlib\zlib.h
+		zlib\zutil.c = zlib\zutil.c
+		zlib\zutil.h = zlib\zutil.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sfed", "sfed", "{A91A73C9-D0CD-4CA9-A2EE-3E1BDB16AEFC}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+		sfed.h = sfed.h
+		sfed.rc = sfed.rc
+		sfedmain.cpp = sfedmain.cpp
+		sfedmaps.cpp = sfedmaps.cpp
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "esp", "esp", "{F41CD8FE-BC9F-406B-9497-7D17D96B887D}"
+	ProjectSection(SolutionItems) = preProject
+		espinfsh.cpp = espinfsh.cpp
+		espmanger.h = espmanger.h
+		espreadbfce.cpp = espreadbfce.cpp
+		espreadbiom.cpp = espreadbiom.cpp
+		espreadhdr.cpp = espreadhdr.cpp
+		espreadlctn.cpp = espreadlctn.cpp
+		espreadpntd.cpp = espreadpntd.cpp
+		espreadstdt.cpp = espreadstdt.cpp
+		espreadutil.cpp = espreadutil.cpp
+		espwrite.cpp = espwrite.cpp
+		espzlib.cpp = espzlib.cpp
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64

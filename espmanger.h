@@ -1,12 +1,8 @@
 // espmanger.h: processing of ESM and ESP files
 //
 // 
-// #define STATIC_ZLIB
 
 #define NOMINMAX
-#ifdef STATIC_ZLIB
-#define ZLIB_H
-#endif
 #include "framework.h"
 #include "sfed.h"
 #include "resource.h"

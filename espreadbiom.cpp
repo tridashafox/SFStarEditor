@@ -1,7 +1,7 @@
 #include "espmanger.h"
-#include <zlib.h>
 #include <locale>
 #include <codecvt>
+#include "zlib\zlib.h"
 
 // get and extracted the required biom content for a planet
 class CArc
