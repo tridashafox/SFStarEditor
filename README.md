@@ -4,8 +4,6 @@ Original creation by tridasha.
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP.
 C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you don't want to install Visual Studio, you have the option of downloading a [Microsoft VM with it already installed](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/). 
 
-Note that if someone passes you a built version of this as a .exe then it may not run unless you have installed Visual Studio or have downloaded the runtime libraries from [Microsoft Visual Studio runtime dlls](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)
-
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets and or moons to created in the star system
@@ -39,6 +37,10 @@ Note that if someone passes you a built version of this as a .exe then it may no
 1. You will need to include the .biom files extracted by step 5 for the new planet(s) or moon(s) in your final ESP. If these are excluded then it will not be possible to land on the planet.
 2. A star contains a position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
 3. [xEdit](https://github.com/TES5Edit/TES5Edit/blob/bfabef91fe7f090c4ba81c865570b2e1ceb8f49d/whatsnew.md) is useful to validate the ESP after changes.
+
+### Update Notes:
+Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dlls by static linking
+Sep 2024 - initial version
 
 ### License:
 Licensed under: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0).
