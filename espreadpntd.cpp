@@ -2,47 +2,6 @@
 
 // Read planets PNDT
 
-// Function to decompress the data and store it in the output parameter
-bool CEsp::decompress_data(const char* compressed_data, size_t compressed_size, std::vector<char>& decompressed_data, size_t decompressed_size) 
-{
-    // Initialize the decompressor object
-    z_stream inflateStream;
-    inflateStream.zalloc = Z_NULL;
-    inflateStream.zfree = Z_NULL;
-    inflateStream.opaque = Z_NULL;
-    inflateStream.avail_in = static_cast<uInt>(compressed_size);
-    inflateStream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed_data));
-
-    int ret = inflateInit(&inflateStream);
-    if (ret != Z_OK) {
-        std::cerr << "Failed to initialize decompression stream." << std::endl;
-        return false;
-    }
-
-    // Reserve space for the decompressed data based on the provided decompressed_size
-    size_t compressed_size__justincase_overflow_buffer = decompressed_size * 3;
-    decompressed_data.resize(decompressed_size + compressed_size__justincase_overflow_buffer);
-
-    inflateStream.next_out = reinterpret_cast<Bytef*>(&decompressed_data[0]);
-    inflateStream.avail_out = static_cast<uInt>(decompressed_size);
-
-    // Decompress the data
-    ret = inflate(&inflateStream, Z_FINISH);
-    if (ret != Z_STREAM_END) {
-        std::cerr << "Failed to decompress data." << std::endl;
-        inflateEnd(&inflateStream);
-        return false;
-    }
-
-    // Finalize decompression
-    inflateEnd(&inflateStream);
-
-    // Resize the vector to the actual decompressed size (in case it's different)
-    decompressed_data.resize(decompressed_size - inflateStream.avail_out);
-
-    return true;
-}
-
 void CEsp::_buildppbdlist(PNDTrec& oRec, const char*& searchPtr, const char*& endPtr)
 {
     size_t taglen = 4;

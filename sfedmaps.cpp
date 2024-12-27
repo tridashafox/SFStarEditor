@@ -750,7 +750,7 @@ INT_PTR CALLBACK DialogProcPlanetMap(HWND hDlg, UINT message, WPARAM wParam, LPA
                         bool bDoRev = numplans > 1 && i == (numplans - 1);
                         double fx = (pmap_oplotdata.m_oPlanetPlots[i].m_fPerihelion/r) * adjust;
                         int rx = istarsize + pt1.x + static_cast<int>(fx);
-                        int ifh = DrawSmallText(hdcMem, 1, rx + istarsize/2, top, top + 30, pmap_oplotdata.m_oPlanetPlots[i].m_strName, false, bDoRev);
+                        int ifh = DrawSmallText(hdcMem, 1, rx + istarsize/2, top, top + istarsize, pmap_oplotdata.m_oPlanetPlots[i].m_strName, false, bDoRev);
 
                         double stz = pmap_oplotdata.m_oPlanetPlots[i].m_RadiusKm/1000;
                         int stx = static_cast<int>(stz);

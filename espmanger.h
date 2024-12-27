@@ -34,12 +34,7 @@
 #include <unordered_map>
 #include <cmath>
 #include <chrono>
-#ifdef STATIC_ZLIB
-#include "zlib\zlib.h"
-#endif
-#ifndef STATIC_ZLIB
-#include <zlib.h>
-#endif
+
 
 
 #pragma comment(lib, "Shcore.lib")
