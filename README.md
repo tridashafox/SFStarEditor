@@ -39,8 +39,9 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 3. [xEdit](https://github.com/TES5Edit/TES5Edit/blob/bfabef91fe7f090c4ba81c865570b2e1ceb8f49d/whatsnew.md) is useful to validate the ESP after changes.
 
 ### Update Notes:
-Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dlls by static linking
-Sep 2024 - initial version
+1. Sep 2024 - initial version
+2. Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dlls by static linking
+
 
 ### License:
 Licensed under: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0).
