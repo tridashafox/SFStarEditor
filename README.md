@@ -40,7 +40,7 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 
 ### Update Notes:
 1. Sep 2024 - initial version
-2. Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dlls by static linking
+2. Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dll by static linking
 
 
 ### License:
