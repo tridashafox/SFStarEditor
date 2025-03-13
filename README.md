@@ -8,12 +8,13 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
 2. Allows for additional planets and or moons to created in the star system
 3. Creates the require locations to ensure navigation is possible in game
-4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP)
-5. Allows ESM or ESP to be source of the data to be cloned from
-6. Makes a back of the ESP when it is saved
-7. Includes are star map to help decide what position the star should be placed in the in game map. Also includes basic planet map for a star system.
-8. Checks how close to other stars to ensure not too close/overlapping
-9. Performs name validation for new stars and planets
+4. Extracts the required biom file and places in the data directory planetdata/biomemaps directory so the planet can be landed on (these must be included in any final ESP).
+   **Note that you also need to create a zone to land on and a point of interest. This is a seperate process see guides on how to do this. For example, link to [steam guide](https://steamcommunity.com/app/2722710/discussions/0/4509877583652704705/)**
+6. Allows ESM or ESP to be source of the data to be cloned from
+7. Makes a backup of the ESP when it is saved
+8. Includes are star map to help decide what position the star should be placed in the in game map. Also includes basic planet map for a star system.
+9. Checks how close to other stars to ensure not too close/overlapping
+10. Performs name validation for new stars and planets
 11. Auto names moons 
 
 ### Limitations:
@@ -40,7 +41,7 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 
 ### Update Notes:
 1. Sep 2024 - initial version
-2. Dec 2024 - Removed dependances on Visual Studio runtime dlls and zlib dll by static linking
+2. Dec 2024 - Removed dependences on Visual Studio runtime dlls and zlib dll by static linking
 
 
 ### License:
