@@ -38,6 +38,7 @@ C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you do
 1. You will need to include the .biom files extracted by step 5 for the new planet(s) or moon(s) in your final ESP. If these are excluded then it will not be possible to land on the planet.
 2. A star contains a position on the in game world map. It's important not to have this same as an existing star, the app checks for this. However, this won't prevent some future ESP using the same position so try not to use a position where this is likely to happen, like center of map, or 0, 0, 0.
 3. [xEdit](https://github.com/TES5Edit/TES5Edit/blob/bfabef91fe7f090c4ba81c865570b2e1ceb8f49d/whatsnew.md) is useful to validate the ESP after changes.
+4. IMPORTANT: It looks like (can't be 100% sure as I've not tried it). If you are going to create an ESM then the biom file needs to be in a planetdata/biomemaps/<NAMEOFYOUR_ESM>.esm/ directory so the planet can be landed on.
 
 ### Update Notes:
 1. Sep 2024 - initial version
