@@ -2,7 +2,7 @@
 Original creation by tridasha.
 
 **EXPERIMENTAL** Windows GUI tool that lets you create a new star system with planets in an existing Starfield ESP.
-C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. If you don't want to install Visual Studio, you have the option of downloading a [Microsoft VM with it already installed](https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/). 
+C++ [Visual Studio 2022](https://visualstudio.microsoft.com/) project. 
 
 ### Features:
 1. Allows creation of a star and planet based on an existing star or planet in order to create a new star system
